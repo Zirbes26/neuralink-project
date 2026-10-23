@@ -57,9 +57,16 @@ export function createImplantDevice(){
   function resetAssembly(){fitted.clear();dragging=null;for(const key of buildOrder)parts[key].objects[0].position.copy(tray[key]);}
   function nextPart(){return buildOrder.find(k=>!fitted.has(k));}
   function fit(key){if(key!==nextPart())return false;fitted.add(key);dragging=null;return true;}
-  function pickables(){const key=nextPart();return key?[parts[key].objects[0]]:[];}
-  function move(key,point){dragging=key;parts[key].objects[0].position.copy(point);}
-  function release(key){const close=parts[key].objects[0].position.distanceTo(slots[key])<.55;dragging=null;if(close)return fit(key);return false;}
+  // Give thin components a forgiving invisible hit area; all loose parts can move.
+  for(const key of buildOrder){
+    const object=parts[key].objects[0];object.userData.assemblyPart=key;
+    object.add(new T.Mesh(new T.BoxGeometry(1.7,.3,1.7),new T.MeshBasicMaterial({visible:false})));
+  }
+  function pickables(){return buildOrder.filter(key=>!fitted.has(key)).map(key=>parts[key].objects[0]);}
+  function beginDrag(key){if(!buildOrder.includes(key)||fitted.has(key))return false;dragging=key;return true;}
+  function cancelDrag(){dragging=null;}
+  function move(key,point){if(!beginDrag(key))return;parts[key].objects[0].position.copy(point);}
+  function release(key,close){dragging=null;if(!slots[key])return false;if(close===undefined)close=parts[key].objects[0].position.distanceTo(slots[key])<.55;return close?fit(key):false;}
   resetAssembly();
   let selected='electronics';
   function select(key){if(!parts[key])return;selected=key;
@@ -75,5 +82,5 @@ export function createImplantDevice(){
     const key=nextPart();socket.visible=!!key;if(key)socket.position.copy(slots[key]);
   }
   select(selected);
-  return {group,parts,data,select,update,slots,nextPart,fit,pickables,move,release,resetAssembly,get count(){return fitted.size;}};
+  return {group,parts,data,select,update,slots,nextPart,fit,pickables,beginDrag,cancelDrag,move,release,resetAssembly,get count(){return fitted.size;}};
 }
