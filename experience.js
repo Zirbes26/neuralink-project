@@ -2,7 +2,7 @@ const $=s=>document.querySelector(s);
 let dataset,recordIndex=0,stage=0,unlocked=0,playing=false,fraction=0,started=0,offset=0,raf=0;
 const completed=[false,false];
 const titles=['Record the attempted speech','Follow the decoder','Compare intention and prediction','Give the decoded words a voice'];
-const explanations=['The participant attempts to speak. Watch the illustrated implant collect signals. No words or audio are revealed at this stage.','Replay the predictions recorded during this trial. Particles illustrate information flowing into the decoder. No model runs in this browser.','Compare the prompted sentence with the recorded final prediction. A decoder can make mistakes.','Choose to hear the final prediction in an English synthetic voice. This is not the participant’s original voice.'];
+const explanations=['The participant attempts to speak. Signals are illustrated leaving two local arrays in left ventral premotor cortex (6v), the region used for speech decoding in this Stanford study. Show implant reveals all four recorded arrays.','Replay the predictions recorded during this trial. Particles illustrate information flowing into the decoder. No model runs in this browser.','Compare the prompted sentence with the recorded final prediction. A decoder can make mistakes.','Choose to hear the final prediction in an English synthetic voice. This is not the participant’s original voice.'];
 function record(){return dataset.records[recordIndex];}
 function cancelVoice(){if('speechSynthesis' in window)speechSynthesis.cancel();$('.scene').dataset.speaking='false';}
 function stop(){playing=false;cancelAnimationFrame(raf);$('.scene').dataset.playing='false';}

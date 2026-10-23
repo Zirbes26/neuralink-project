@@ -21,7 +21,34 @@ function init(){
   const skin=new T.MeshStandardMaterial({color:0xddbda1,roughness:.72,metalness:.04});
   const jade=new T.MeshStandardMaterial({color:0x367e71,roughness:.35,metalness:.35});
   const glow=new T.MeshStandardMaterial({color:0xf3ba79,emissive:0xd48139,emissiveIntensity:.6,roughness:.25});
-  const person=new T.Group();person.position.set(-3.6,0,0);person.rotation.y=.22;scene.add(person);
+  const person=new T.Group();person.position.set(-3.6,0,0);person.rotation.y=-.3;scene.add(person);
+  // Generic-head local coordinates only: positive X is the person's left side.
+  // Anterior is +Z; 6v is posterior to area 44 in this schematic.
+  const siteDefinitions=[
+    {region:'6v',name:'6v dorsal',point:new T.Vector3(.72,1.03,-.10),active:true},
+    {region:'6v',name:'6v ventral',point:new T.Vector3(.72,.87,-.04),active:true},
+    {region:'44',name:'44 superior',point:new T.Vector3(.70,.89,.30),active:false},
+    {region:'44',name:'44 inferior',point:new T.Vector3(.70,.73,.36),active:false}
+  ];
+  const recordingSites=new T.Group();person.add(recordingSites);
+  const siteMeshes=[],activeAnchors=[];
+  const secondaryMaterial=new T.MeshStandardMaterial({color:0x947eae,roughness:.6});
+  function buildRecordingSites(){
+    recordingSites.clear();siteMeshes.length=0;activeAnchors.length=0;
+    for(const def of siteDefinitions){
+      const group=new T.Group();group.position.copy(def.point);
+      const patch=new T.Mesh(new T.BoxGeometry(.025,.105,.105),def.active?jade:secondaryMaterial);group.add(patch);
+      const contacts=new T.InstancedMesh(new T.SphereGeometry(.0038,5,4),def.active?glow:secondaryMaterial,64);
+      for(let row=0;row<8;row++)for(let col=0;col<8;col++){
+        contacts.setMatrixAt(row*8+col,new T.Matrix4().makeTranslation(.018,(row-3.5)*.011,(col-3.5)*.011));
+      }
+      group.add(contacts);
+      group.userData={region:def.region,name:def.name,usedForDecoding:def.active};
+      recordingSites.add(group);siteMeshes.push(group);if(def.active)activeAnchors.push(def.point.clone());
+    }
+    halos.forEach((h,i)=>{h.position.copy(activeAnchors[i]);h.position.x+=.03;recordingSites.add(h);});
+    recordingSites.visible=true;
+  }
   let head;
   new GLTFLoader().load('./models/head.glb',g=>{
     g.scene.traverse(o=>{if(o.isMesh&&!head)head=new T.Mesh(o.geometry,skin);});
@@ -29,21 +56,24 @@ function init(){
     head.geometry.computeBoundingBox();const box=head.geometry.boundingBox;
     const scale=3.5/(box.max.y-box.min.y);head.scale.setScalar(scale);
     const center=box.getCenter(new T.Vector3());head.position.copy(center).multiplyScalar(-scale);
-    person.add(head);loading.hidden=true;
+    // Locate the lateral scalp surface on this generic mesh, then move the markers
+    // slightly inward. This is not a registration to T12's MRI or an exact cortical map.
+    head.updateMatrixWorld(true);
+    const ray=new T.Raycaster();
+    for(const def of siteDefinitions){
+      ray.set(new T.Vector3(2,def.point.y,def.point.z),new T.Vector3(-1,0,0));
+      const hit=ray.intersectObject(head,false)[0];
+      if(hit)def.point.x=hit.point.x-.065;
+    }
+    person.add(head);buildRecordingSites();updateSignalRoutes();loading.hidden=true;
   },undefined,()=>{loading.textContent='The 3D head could not load. Open this page with Live Server and refresh.';});
-  // Placement is deliberately illustrative, not a surgical or anatomical reconstruction.
-  const implant=new T.Mesh(new T.CylinderGeometry(.22,.22,.10,40),jade);
-  implant.position.set(.47,1.23,.42);implant.rotation.z=-.48;person.add(implant);
-  const implantLight=new T.Mesh(new T.TorusGeometry(.23,.025,12,48),glow);
-  implantLight.rotation.x=Math.PI/2;implant.add(implantLight);
-  const internal=new T.Group();person.add(internal);
-  for(let i=0;i<14;i++){
-    const end=new T.Vector3(Math.sin(i*2.4)*.62,.35+Math.cos(i*1.7)*.45,Math.cos(i*2.4)*.43);
-    const curve=new T.QuadraticBezierCurve3(implant.position.clone(),new T.Vector3(end.x,1,end.z),end);
-    internal.add(new T.Mesh(new T.TubeGeometry(curve,20,.012,5,false),glow));
-    const dot=new T.Mesh(new T.SphereGeometry(.032,8,8),glow);dot.position.copy(end);internal.add(dot);
+  // Four local microelectrode arrays: two 6v, two 44. No whole-head fibers.
+  const haloMaterial=new T.MeshBasicMaterial({color:0xf3ba79,transparent:true,opacity:.38,depthWrite:false});
+  const halos=[];
+  for(let i=0;i<2;i++){
+    const halo=new T.Mesh(new T.RingGeometry(.075,.09,32),haloMaterial);
+    halo.rotation.y=Math.PI/2;recordingSites.add(halo);halos.push(halo);
   }
-  internal.visible=false;
   const base=new T.Mesh(new T.CylinderGeometry(1.38,1.5,.12,64),new T.MeshStandardMaterial({color:0xbac7b8,roughness:.9}));
   base.position.set(-3.6,-1.82,0);scene.add(base);
   const decoder=new T.Group();decoder.position.set(.05,.1,0);scene.add(decoder);
@@ -70,10 +100,24 @@ function init(){
   function paintText(text,s){const c=textCanvas.getContext('2d');c.fillStyle='#f8f4ec';c.fillRect(0,0,1024,512);c.fillStyle='#547363';c.font='24px sans-serif';c.fillText(s===0?'WAITING FOR THE SIGNAL':s===1?'RECORDED DECODER PREDICTION':'DECODED WORDS',60,75);c.fillStyle='#243d35';c.font='56px Georgia';let line='',y=225;for(const word of text.split(' ')){if(c.measureText(line+word).width>900){c.fillText(line,60,y);line='';y+=76;}line+=word+' ';}c.fillText(line,60,y);c.font='22px sans-serif';c.fillStyle='#718176';c.fillText(s===3?'Ready for synthetic speech':'Research recording · T12',60,450);texture.needsUpdate=true;}
   const waves=new T.Group();waves.position.set(5.5,.15,.2);scene.add(waves);
   for(let i=0;i<4;i++){const wave=new T.Mesh(new T.TorusGeometry(.24+i*.15,.018,8,48,Math.PI*1.35),glow);wave.rotation.z=-Math.PI*.675;wave.rotation.y=.35;wave.position.x=i*.13;waves.add(wave);}
-  const source=new T.Vector3(-3.05,1.25,.45);
-  const signalPath=new T.CatmullRomCurve3([source,new T.Vector3(-2.4,1.5,.55),new T.Vector3(-1.4,.3,.4),new T.Vector3(-.8,.1,0)]);
+  const source=new T.Vector3();
+  let signalPath,signalTube;
+  const capturePaths=[];
   const wordPath=new T.CatmullRomCurve3([new T.Vector3(.9,.1,0),new T.Vector3(1.25,.3,.3),new T.Vector3(1.68,.15,.25)]);
-  [signalPath,wordPath].forEach(path=>scene.add(new T.Mesh(new T.TubeGeometry(path,60,.012,6,false),new T.MeshBasicMaterial({color:0x86a89a,transparent:true,opacity:.4}))));
+  const routeMaterial=new T.MeshBasicMaterial({color:0x86a89a,transparent:true,opacity:.4});
+  scene.add(new T.Mesh(new T.TubeGeometry(wordPath,60,.012,6,false),routeMaterial));
+  function updateSignalRoutes(){
+    person.updateMatrixWorld(true);
+    const anchors=(activeAnchors.length?activeAnchors:siteDefinitions.filter(d=>d.active).map(d=>d.point)).map(p=>person.localToWorld(p.clone()));
+    source.copy(anchors[0]).add(anchors[1]).multiplyScalar(.5);
+    const outlet=source.clone().add(new T.Vector3(.27,.10,.20));
+    signalPath=new T.CatmullRomCurve3([source.clone(),outlet,new T.Vector3(-1.5,.45,.5),new T.Vector3(-.8,.1,0)]);
+    if(signalTube){signalTube.geometry.dispose();scene.remove(signalTube);}
+    signalTube=new T.Mesh(new T.TubeGeometry(signalPath,60,.012,6,false),routeMaterial);scene.add(signalTube);
+    capturePaths.length=0;
+    anchors.forEach(a=>capturePaths.push(new T.QuadraticBezierCurve3(a.clone().add(new T.Vector3(-.025,0,-.025)),a.clone(),outlet)));
+  }
+  updateSignalRoutes();
   const particles=[];
   for(let i=0;i<24;i++){const m=new T.Mesh(new T.SphereGeometry(i<16?.04:.025,8,8),glow);scene.add(m);particles.push(m);}
   const focusLabels=['01 / The person behind the signal','02 / From neural activity to a prediction','03 / A sentence takes shape','04 / The words become audible'];
@@ -90,7 +134,12 @@ function init(){
   const stageObserver=new MutationObserver(()=>{const s=Number(shell.dataset.stage||0);if(s!==cameraStage){cameraStage=s;setHeadZoom(false);yaw=0;pitch=0;document.querySelector('#scene-focus').textContent=focusLabels[s];}});
   stageObserver.observe(shell,{attributes:true,attributeFilter:['data-stage']});
   document.querySelector('#view-reset').onclick=()=>{yaw=0;pitch=0;setHeadZoom(false);};
-  document.querySelector('#view-implant').onclick=e=>{cutaway=!cutaway;skin.transparent=cutaway;skin.opacity=cutaway?.2:1;skin.depthWrite=!cutaway;skin.needsUpdate=true;internal.visible=cutaway;e.currentTarget.setAttribute('aria-pressed',String(cutaway));e.currentTarget.textContent=cutaway?'Hide implant':'Show implant';};
+  document.querySelector('#view-implant').onclick=e=>{
+    cutaway=!cutaway;skin.transparent=cutaway;skin.opacity=cutaway?.16:1;skin.depthWrite=!cutaway;skin.needsUpdate=true;
+    setHeadZoom(cutaway);yaw=cutaway?.65:0;pitch=0;
+    document.querySelector('#site-key').hidden=!cutaway;
+    e.currentTarget.setAttribute('aria-pressed',String(cutaway));e.currentTarget.textContent=cutaway?'Hide sites':'Show implant';
+  };
   renderer.domElement.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY};renderer.domElement.setPointerCapture(e.pointerId);});
   renderer.domElement.addEventListener('pointermove',e=>{if(!drag)return;rotate((e.clientX-drag.x)*.004);pitch=T.MathUtils.clamp(pitch+(e.clientY-drag.y)*.003,-.35,.35);drag={x:e.clientX,y:e.clientY};});
   renderer.domElement.addEventListener('pointerup',()=>drag=null);renderer.domElement.addEventListener('pointercancel',()=>drag=null);
@@ -114,8 +163,8 @@ function init(){
     if(headZoom){const d=camera.aspect<1?9.2:5.2;dest.set(-3.6+Math.sin(yaw)*d,.65+pitch*d,Math.cos(yaw)*d);}
     camera.position.lerp(dest,reduced.matches?1:1-Math.exp(-delta*4));camera.lookAt(aim);
     decoder.rotation.y=reduced.matches?0:(s===1?f*.65:.15);decoder.rotation.x=.12;
-    implantLight.scale.setScalar(active&&s===0&&!reduced.matches?1+.2*Math.sin(f*40):1);
-    particles.forEach((m,i)=>{m.visible=active&&s<=1;if(!m.visible)return;const t=(f*2+i/24)%1;if(s===0){m.position.copy(source).add(new T.Vector3(Math.sin(i*2.4)*(.9*(1-t)),(t-1)*.9,Math.cos(i*2.4)*.5*(1-t)));}else m.position.copy((i<16?signalPath:wordPath).getPointAt((f*2+i/16)%1));if(reduced.matches)m.visible=false;});
+    halos.forEach(h=>{h.visible=cutaway||active&&s===0;h.scale.setScalar(active&&s===0&&!reduced.matches?1+.15*Math.sin(f*40):1);});
+    particles.forEach((m,i)=>{m.visible=active&&s<=1;if(!m.visible)return;const t=(f*2+i/24)%1;if(s===0){m.position.copy(capturePaths[i%2].getPoint(t));}else m.position.copy((i<16?signalPath:wordPath).getPointAt((f*2+i/16)%1));if(reduced.matches)m.visible=false;});
     waves.visible=s===3;waves.children.forEach((w,i)=>{w.scale.setScalar(speaking&&!reduced.matches?1+.15*Math.sin(now*.008-i):1);});
     renderer.render(scene,camera);
   }

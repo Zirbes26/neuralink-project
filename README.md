@@ -33,3 +33,9 @@ Neuralink provides the inspiration; Stanford provides the recorded data. This pr
 ## Homepage-first layout
 
 The only interactive journey is on index.html#journey. technology.html explains training and decoding with an original conceptual diagram; experience.html explains the recorded examples and provenance; resources.html contains external sources and credits. The quote and poster appear after the interaction. The shared masthead combines the guide introduction and the official Neuralink link in one sentence.
+
+## Localized recording sites
+
+The four markers represent the two 6v and two area 44 recording arrays in Stanford participant T12. Only the two 6v anchors feed the illustrative decoding route. There are no distributed whole-head recording fibers. Approximate markers are positioned on the participant-left side of the generic head and slightly inside its surface, not registered to T12 MRI. Marker size is exaggerated. Show implant reveals the local sites with a left-side view and a source legend. The source heatmap still includes 256 channels: 0–127 are 6v and 128–255 area 44 according to sentences_readme.txt.
+
+Reference: Willett et al., Nature (2023), DOI 10.1038/s41586-023-06377-x, Figure 1 and Extended Data Figures 2 and 7. This is not a claim about Neuralink implant placement.
