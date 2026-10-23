@@ -79,12 +79,17 @@ function init(){
   const focusLabels=['01 / The person behind the signal','02 / From neural activity to a prediction','03 / A sentence takes shape','04 / The words become audible'];
   const poses=[[-3.1,.3,7.8],[-.7,.65,12],[2.8,.4,8],[3.8,.5,8.8]];
   const targets=[[-3.25,.15,0],[-.8,.3,0],[2.65,.15,0],[3.55,.15,0]];
-  let yaw=0,pitch=0,drag=null,cutaway=false,visible=true,animation=0;
+  let yaw=0,pitch=0,drag=null,cutaway=false,headZoom=false,visible=true,animation=0;
   const target=new T.Vector3(),aim=new T.Vector3(-3.25,.15,0);camera.position.set(-3.1,.3,7.8);
   function rotate(v){yaw=T.MathUtils.clamp(yaw+v,-.8,.8);}
   document.querySelector('#view-left').onclick=()=>rotate(-.16);
   document.querySelector('#view-right').onclick=()=>rotate(.16);
-  document.querySelector('#view-reset').onclick=()=>{yaw=0;pitch=0;};
+  function setHeadZoom(value){headZoom=value;const b=document.querySelector('#view-head');b.setAttribute('aria-pressed',String(value));b.textContent=value?'Return to journey':'Enlarge head';}
+  document.querySelector('#view-head').onclick=()=>{setHeadZoom(!headZoom);yaw=0;pitch=0;};
+  let cameraStage=Number(shell.dataset.stage||0);
+  const stageObserver=new MutationObserver(()=>{const s=Number(shell.dataset.stage||0);if(s!==cameraStage){cameraStage=s;setHeadZoom(false);yaw=0;pitch=0;document.querySelector('#scene-focus').textContent=focusLabels[s];}});
+  stageObserver.observe(shell,{attributes:true,attributeFilter:['data-stage']});
+  document.querySelector('#view-reset').onclick=()=>{yaw=0;pitch=0;setHeadZoom(false);};
   document.querySelector('#view-implant').onclick=e=>{cutaway=!cutaway;skin.transparent=cutaway;skin.opacity=cutaway?.2:1;skin.depthWrite=!cutaway;skin.needsUpdate=true;internal.visible=cutaway;e.currentTarget.setAttribute('aria-pressed',String(cutaway));e.currentTarget.textContent=cutaway?'Hide implant':'Show implant';};
   renderer.domElement.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY};renderer.domElement.setPointerCapture(e.pointerId);});
   renderer.domElement.addEventListener('pointermove',e=>{if(!drag)return;rotate((e.clientX-drag.x)*.004);pitch=T.MathUtils.clamp(pitch+(e.clientY-drag.y)*.003,-.35,.35);drag={x:e.clientX,y:e.clientY};});
@@ -96,15 +101,17 @@ function init(){
   function frameLoop(now){animation=requestAnimationFrame(frameLoop);if(!visible||document.hidden){previous=now;return;}const delta=Math.min((now-previous)/1000,.05);previous=now;
     const s=Number(shell.dataset.stage||0),active=shell.dataset.playing==='true',speaking=shell.dataset.speaking==='true';
     const f=Number(document.querySelector('#stage-progress').value||0);
-    if(s!==lastStage){yaw=0;pitch=0;document.querySelector('#scene-focus').textContent=focusLabels[s];}
+    if(s!==lastStage){setHeadZoom(false);yaw=0;pitch=0;document.querySelector('#scene-focus').textContent=focusLabels[s];}
     const txt=s===0?'…':document.querySelector('#partial-text').textContent;
     if(txt!==lastText||s!==lastStage){paintText(txt,s);lastText=txt;lastStage=s;}
     target.fromArray(targets[s]);
     if(camera.aspect<1&&s===1)target.set(-3.1+5.7*f,.2,0);
+    if(headZoom)target.set(-3.6,.65,0);
     aim.lerp(target,reduced.matches?1:1-Math.exp(-delta*4));
     const p=poses[s],distance=p[2]*(camera.aspect<1?1.55:1);
     const dest=new T.Vector3(p[0]+Math.sin(yaw)*distance,p[1]+pitch*distance,Math.cos(yaw)*distance);
     if(camera.aspect<1&&s===1)dest.set(target.x+Math.sin(yaw)*11,.5+pitch*11,Math.cos(yaw)*11);
+    if(headZoom){const d=camera.aspect<1?9.2:5.2;dest.set(-3.6+Math.sin(yaw)*d,.65+pitch*d,Math.cos(yaw)*d);}
     camera.position.lerp(dest,reduced.matches?1:1-Math.exp(-delta*4));camera.lookAt(aim);
     decoder.rotation.y=reduced.matches?0:(s===1?f*.65:.15);decoder.rotation.x=.12;
     implantLight.scale.setScalar(active&&s===0&&!reduced.matches?1+.2*Math.sin(f*40):1);
@@ -114,5 +121,5 @@ function init(){
   }
   animation=requestAnimationFrame(frameLoop);
   renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();loading.hidden=false;loading.textContent='The 3D view was interrupted. Refresh to restore it. The recording controls remain available.';});
-  window.addEventListener('pagehide',()=>{cancelAnimationFrame(animation);ro.disconnect();io.disconnect();scene.traverse(o=>{o.geometry?.dispose();if(o.material){for(const m of [].concat(o.material))m.dispose();}});texture.dispose();labelTexture.dispose();renderer.dispose();},{once:true});
+  window.addEventListener('pagehide',event=>{if(event.persisted)return;cancelAnimationFrame(animation);ro.disconnect();io.disconnect();stageObserver.disconnect();scene.traverse(o=>{o.geometry?.dispose();if(o.material){for(const m of [].concat(o.material))m.dispose();}});texture.dispose();labelTexture.dispose();renderer.dispose();});
 }
