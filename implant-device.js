@@ -48,17 +48,32 @@ export function createImplantDevice(){
     for(let e=0;e<3;e++){const p=curve.getPoint(.68+e*.11);add(threads,new T.SphereGeometry(.012,6,5),gold,p.x,p.y,p.z);}
   }
   lower.position.y=-1.55;
-  let selected='enclosure';
+  const buildOrder=['electronics','battery','enclosure'];
+  const fitted=new Set();let dragging=null;
+  const slots={electronics:new T.Vector3(0,-.22,0),battery:new T.Vector3(0,-.035,0),enclosure:new T.Vector3(0,.20,0)};
+  const tray={electronics:new T.Vector3(-1.55,-.65,.35),battery:new T.Vector3(1.6,-.15,.35),enclosure:new T.Vector3(-1.55,1.0,.35)};
+  const socket=new T.Mesh(new T.TorusGeometry(.83,.025,12,64),new T.MeshBasicMaterial({color:0x7664c9,transparent:true,opacity:.7}));socket.rotation.x=Math.PI/2;group.add(socket);
+  lower.position.y=-.33;
+  function resetAssembly(){fitted.clear();dragging=null;for(const key of buildOrder)parts[key].objects[0].position.copy(tray[key]);}
+  function nextPart(){return buildOrder.find(k=>!fitted.has(k));}
+  function fit(key){if(key!==nextPart())return false;fitted.add(key);dragging=null;return true;}
+  function pickables(){const key=nextPart();return key?[parts[key].objects[0]]:[];}
+  function move(key,point){dragging=key;parts[key].objects[0].position.copy(point);}
+  function release(key){const close=parts[key].objects[0].position.distanceTo(slots[key])<.55;dragging=null;if(close)return fit(key);return false;}
+  resetAssembly();
+  let selected='electronics';
   function select(key){if(!parts[key])return;selected=key;
     for(const [name,part] of Object.entries(parts))part.objects.forEach(o=>o.traverse(m=>{if(m.material?.emissive){m.material.emissive.set(name===key?0x285e50:0x000000);m.material.emissiveIntensity=name===key?.25:0;}}));
     return data[key];
   }
   function update(delta,reduced=false){
-    for(const [name,part] of Object.entries(parts))for(const obj of part.objects){
-      const y=obj.userData.lowerCover?-1.55:part.y;
-      obj.position.y=T.MathUtils.lerp(obj.position.y,y+(name===selected&&!obj.userData.lowerCover?.07:0),reduced?1:1-Math.exp(-delta*5));
-    }
+    const rate=reduced?1:1-Math.exp(-delta*7);
+    for(const key of buildOrder){if(dragging===key)continue;parts[key].objects[0].position.lerp(fitted.has(key)?slots[key]:tray[key],rate);}
+    lower.position.y=-.33;
+    parts.threads.objects[0].position.y=T.MathUtils.lerp(parts.threads.objects[0].position.y,fitted.size===3?-.22:-1.2,rate);
+    parts.threads.objects[0].visible=fitted.size===3;
+    const key=nextPart();socket.visible=!!key;if(key)socket.position.copy(slots[key]);
   }
   select(selected);
-  return {group,parts,data,select,update};
+  return {group,parts,data,select,update,slots,nextPart,fit,pickables,move,release,resetAssembly,get count(){return fitted.size;}};
 }

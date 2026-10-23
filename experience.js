@@ -29,7 +29,7 @@ function render(){
  $('#mode-hardware').setAttribute('aria-pressed',String(hardware));$('#mode-recording').setAttribute('aria-pressed',String(!hardware));
  $('#view-head').hidden=hardware;$('#view-implant').hidden=hardware;
  $('.transcript').hidden=hardware||stage===0;
- $('#mode-note').textContent=hardware?'Hardware schematic based on Neuralink’s public description. Layers are separated for explanation; dimensions and thread paths are illustrative.':'Research replay · Stanford (2023). These signals and predictions are not Neuralink measurements.';
+ $('#mode-note').textContent=hardware?'Build 3 parts in order. Educational schematic—not a surgical simulation.':'Research replay · Stanford (2023). These signals and predictions are not Neuralink measurements.';
 
 }
 function enter(s){if(s>unlocked)return;stop();cancelVoice();stage=s;fraction=0;$('#result').textContent='';render();if(stage<2)updateAt(0);}

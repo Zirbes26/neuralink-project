@@ -123,9 +123,39 @@ function init(){
     document.querySelector('#part-title').textContent=info.title;
     document.querySelector('#part-description').textContent=info.text;
   }));
-  renderer.domElement.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY};renderer.domElement.setPointerCapture(e.pointerId);});
-  renderer.domElement.addEventListener('pointermove',e=>{if(!drag)return;rotate((e.clientX-drag.x)*.004);pitch=T.MathUtils.clamp(pitch+(e.clientY-drag.y)*.003,-.35,.35);drag={x:e.clientX,y:e.clientY};});
-  renderer.domElement.addEventListener('pointerup',()=>drag=null);renderer.domElement.addEventListener('pointercancel',()=>drag=null);
+  const raycaster=new T.Raycaster(),pointer=new T.Vector2(),dragPlane=new T.Plane();
+  let movingPart=null,dragOffset=new T.Vector3();
+  const buildStatus=document.querySelector('#assembly-status');
+  const names={electronics:'electronics',battery:'battery',enclosure:'cover'};
+  function syncBuild(message=''){
+    const next=implant.nextPart(),done=!next;
+    if(buildStatus)buildStatus.textContent=message||(done?'Ready! The threads unfold below the assembled implant.':`${implant.count}/3 assembled · Drag the ${names[next]} onto the purple ring.`);
+    const place=document.querySelector('#assembly-place');if(place){place.disabled=done;place.textContent=done?'Assembly complete':`Place ${names[next]}`;}
+    if(next){const info=implant.select(next);document.querySelector('#part-title').textContent=info.title;document.querySelector('#part-description').textContent={electronics:'Processes recorded neural signals.',battery:'Powers the implant and recharges wirelessly.',enclosure:'Protects the components inside a sealed housing.'}[next];}
+    document.querySelectorAll('[data-implant-part]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.implantPart===next)));
+  }
+  document.querySelector('#assembly-place')?.addEventListener('click',()=>{const key=implant.nextPart();if(key)implant.fit(key);syncBuild();});
+  document.querySelector('#assembly-reset')?.addEventListener('click',()=>{movingPart=null;implant.resetAssembly();syncBuild();});
+  function pointerRay(e){const rect=renderer.domElement.getBoundingClientRect();pointer.set((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1);raycaster.setFromCamera(pointer,camera);}
+  renderer.domElement.style.touchAction='none';
+  renderer.domElement.addEventListener('pointerdown',e=>{
+    pointerRay(e);
+    if(shell.dataset.mode!=='recording'&&raycaster.intersectObjects(implant.pickables(),true).length){
+      movingPart=implant.nextPart();implant.group.updateMatrixWorld(true);
+      const slot=implant.group.localToWorld(implant.slots[movingPart].clone());
+      dragPlane.setFromNormalAndCoplanarPoint(camera.getWorldDirection(new T.Vector3()),slot);
+      const hit=raycaster.ray.intersectPlane(dragPlane,new T.Vector3());
+      if(hit)dragOffset.copy(implant.parts[movingPart].objects[0].position).sub(implant.group.worldToLocal(hit));
+    }else drag={x:e.clientX,y:e.clientY};
+    renderer.domElement.setPointerCapture(e.pointerId);
+  });
+  renderer.domElement.addEventListener('pointermove',e=>{
+    if(movingPart){pointerRay(e);const hit=raycaster.ray.intersectPlane(dragPlane,new T.Vector3());if(hit)implant.move(movingPart,implant.group.worldToLocal(hit).add(dragOffset));return;}
+    if(!drag)return;rotate((e.clientX-drag.x)*.004);pitch=T.MathUtils.clamp(pitch+(e.clientY-drag.y)*.003,-.35,.35);drag={x:e.clientX,y:e.clientY};
+  });
+  renderer.domElement.addEventListener('pointerup',()=>{if(movingPart){const fitted=implant.release(movingPart);movingPart=null;syncBuild(fitted?'':'Almost! Move the component closer to the purple ring, or use Place below.');}drag=null;});
+  renderer.domElement.addEventListener('pointercancel',()=>{if(movingPart){implant.release(movingPart);movingPart=null;syncBuild();}drag=null;});
+  syncBuild();
   function resize(){const w=host.clientWidth,h=host.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
   const ro=new ResizeObserver(resize);ro.observe(host);resize();
   const io=new IntersectionObserver(entries=>{visible=entries[0].isIntersecting;});io.observe(host);
@@ -135,7 +165,7 @@ function init(){
     const f=Number(document.querySelector('#stage-progress').value||0);
     const hardware=shell.dataset.mode!=='recording';
     study.visible=!hardware;implant.group.visible=hardware;implant.update(delta,reduced.matches);
-    document.querySelector('#scene-focus').textContent=hardware?'Inside the implant':focusLabels[s];
+    document.querySelector('#scene-focus').textContent=hardware?'Build a path to a voice':focusLabels[s];
     document.querySelector('.scene-caption > span').textContent=hardware?'NEURALINK · HARDWARE SCHEMATIC':'RESEARCH REPLAY · SIGNAL TO TEXT';
     if(s!==lastStage){setHeadZoom(false);yaw=0;pitch=0;document.querySelector('#scene-focus').textContent=focusLabels[s];}
     const txt=s===0?'':document.querySelector('#partial-text').textContent;
