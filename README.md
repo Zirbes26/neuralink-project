@@ -45,3 +45,7 @@ Reference: Willett et al., Nature (2023), DOI 10.1038/s41586-023-06377-x, Figure
 The homepage opens in hardware mode. `implant-device.js` builds an original exploded schematic of the four component categories described in Neuralink’s technology overview: enclosure, battery, electronics and flexible electrode threads. It is not a CAD replica and does not map Neuralink threads to Stanford recording sites. Select a component to highlight it and read its description.
 
 A separate recording mode replays public Stanford data, with a short visible attribution. Opening hardware mode pauses recording playback and cancels synthetic speech. Only recording mode can reveal decoder text or trigger speech. The hardware animation does not read or validate the public data. Detailed Stanford provenance remains on experience.html and resources.html.
+
+## External decoding computer
+
+`decoding-computer.js` replaces the old transparent decoder cube and separate text slab with a generic 3D laptop, including a screen, bezel, hinge, keyboard, trackpad and receiver symbol. The small software-network illustration and recorded words are rendered inside its screen. The dashed signal path represents wireless data transfer; it is not a cable or measured radio propagation. Stages 2–4 frame the computer, final text and voice output. The surgical robot is discussed separately as an implantation tool. The laptop is not a branded product, an exact replica of study equipment, or evidence of live model inference.
