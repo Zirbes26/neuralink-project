@@ -39,3 +39,9 @@ The only interactive journey is on index.html#journey. technology.html explains 
 The four markers represent the two 6v and two area 44 recording arrays in Stanford participant T12. Only the two 6v anchors feed the illustrative decoding route. There are no distributed whole-head recording fibers. Approximate markers are positioned on the participant-left side of the generic head and slightly inside its surface, not registered to T12 MRI. Marker size is exaggerated. Show implant reveals the local sites with a left-side view and a source legend. The source heatmap still includes 256 channels: 0–127 are 6v and 128–255 area 44 according to sentences_readme.txt.
 
 Reference: Willett et al., Nature (2023), DOI 10.1038/s41586-023-06377-x, Figure 1 and Extended Data Figures 2 and 7. This is not a claim about Neuralink implant placement.
+
+## Neuralink hardware focus
+
+The homepage opens in hardware mode. `implant-device.js` builds an original exploded schematic of the four component categories described in Neuralink’s technology overview: enclosure, battery, electronics and flexible electrode threads. It is not a CAD replica and does not map Neuralink threads to Stanford recording sites. Select a component to highlight it and read its description.
+
+A separate recording mode replays public Stanford data, with a short visible attribution. Opening hardware mode pauses recording playback and cancels synthetic speech. Only recording mode can reveal decoder text or trigger speech. The hardware animation does not read or validate the public data. Detailed Stanford provenance remains on experience.html and resources.html.

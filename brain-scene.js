@@ -1,5 +1,6 @@
 import * as T from './vendor/three.module.js';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
+import {createImplantDevice} from './implant-device.js';
 
 const host=document.querySelector('#brain-viewport'), shell=document.querySelector('.webgl-scene');
 const loading=document.querySelector('#scene-loading');
@@ -14,6 +15,8 @@ function init(){
   renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;
   host.append(renderer.domElement);
   const scene=new T.Scene(),camera=new T.PerspectiveCamera(38,1,.1,100);
+  const study=new T.Group();scene.add(study);
+  const implant=createImplantDevice();scene.add(implant.group);
   scene.add(new T.HemisphereLight(0xfff4df,0x627d76,2.5));
   const key=new T.DirectionalLight(0xffe5ca,3.8);key.position.set(-4,6,7);scene.add(key);
   const rim=new T.DirectionalLight(0x8dc8bc,3);rim.position.set(2,3,-5);scene.add(rim);
@@ -21,7 +24,7 @@ function init(){
   const skin=new T.MeshStandardMaterial({color:0xddbda1,roughness:.72,metalness:.04});
   const jade=new T.MeshStandardMaterial({color:0x367e71,roughness:.35,metalness:.35});
   const glow=new T.MeshStandardMaterial({color:0xf3ba79,emissive:0xd48139,emissiveIntensity:.6,roughness:.25});
-  const person=new T.Group();person.position.set(-3.6,0,0);person.rotation.y=-.3;scene.add(person);
+  const person=new T.Group();person.position.set(-3.6,0,0);person.rotation.y=-.3;study.add(person);
   // Generic-head local coordinates only: positive X is the person's left side.
   // Anterior is +Z; 6v is posterior to area 44 in this schematic.
   const siteDefinitions=[
@@ -75,8 +78,8 @@ function init(){
     halo.rotation.y=Math.PI/2;recordingSites.add(halo);halos.push(halo);
   }
   const base=new T.Mesh(new T.CylinderGeometry(1.38,1.5,.12,64),new T.MeshStandardMaterial({color:0xbac7b8,roughness:.9}));
-  base.position.set(-3.6,-1.82,0);scene.add(base);
-  const decoder=new T.Group();decoder.position.set(.05,.1,0);scene.add(decoder);
+  base.position.set(-3.6,-1.82,0);study.add(base);
+  const decoder=new T.Group();decoder.position.set(.05,.1,0);study.add(decoder);
   const vertices=[];
   for(let layer=0;layer<4;layer++)for(let i=0;i<6;i++){
     const p=new T.Vector3((layer-1.5)*.38,(i%3-1)*.49,(Math.floor(i/3)-.5)*.7);
@@ -91,35 +94,35 @@ function init(){
   const labelCanvas=document.createElement('canvas');labelCanvas.width=768;labelCanvas.height=96;
   const lc=labelCanvas.getContext('2d');lc.fillStyle='#e7eee5';lc.fillRect(0,0,768,96);lc.fillStyle='#2e594a';lc.font='25px sans-serif';lc.textAlign='center';lc.fillText('DECODER · RNN + LANGUAGE MODEL',384,57);
   const labelTexture=new T.CanvasTexture(labelCanvas);labelTexture.colorSpace=T.SRGBColorSpace;
-  const decoderLabel=new T.Sprite(new T.SpriteMaterial({map:labelTexture}));decoderLabel.position.set(.05,-1.12,.1);decoderLabel.scale.set(2.3,.29,1);scene.add(decoderLabel);
+  const decoderLabel=new T.Sprite(new T.SpriteMaterial({map:labelTexture}));decoderLabel.position.set(.05,-1.12,.1);decoderLabel.scale.set(2.3,.29,1);study.add(decoderLabel);
   const textCanvas=document.createElement('canvas');textCanvas.width=1024;textCanvas.height=512;
   const texture=new T.CanvasTexture(textCanvas);texture.colorSpace=T.SRGBColorSpace;
-  const panel=new T.Mesh(new T.PlaneGeometry(3.1,1.55),new T.MeshBasicMaterial({map:texture,side:T.DoubleSide}));panel.position.set(3.25,.15,.2);scene.add(panel);
-  const panelBack=new T.Mesh(new T.BoxGeometry(3.2,1.65,.13),new T.MeshStandardMaterial({color:0xb7c6b9,roughness:.75}));panelBack.position.copy(panel.position);panelBack.position.z-=.09;scene.add(panelBack);
+  const panel=new T.Mesh(new T.PlaneGeometry(3.1,1.55),new T.MeshBasicMaterial({map:texture,side:T.DoubleSide}));panel.position.set(3.25,.15,.2);study.add(panel);
+  const panelBack=new T.Mesh(new T.BoxGeometry(3.2,1.65,.13),new T.MeshStandardMaterial({color:0xb7c6b9,roughness:.75}));panelBack.position.copy(panel.position);panelBack.position.z-=.09;study.add(panelBack);
   let lastText='',lastStage=-1;
   function paintText(text,s){const c=textCanvas.getContext('2d');c.fillStyle='#f8f4ec';c.fillRect(0,0,1024,512);c.fillStyle='#547363';c.font='24px sans-serif';c.fillText(s===0?'WAITING FOR THE SIGNAL':s===1?'RECORDED DECODER PREDICTION':'DECODED WORDS',60,75);c.fillStyle='#243d35';c.font='56px Georgia';let line='',y=225;for(const word of text.split(' ')){if(c.measureText(line+word).width>900){c.fillText(line,60,y);line='';y+=76;}line+=word+' ';}c.fillText(line,60,y);c.font='22px sans-serif';c.fillStyle='#718176';c.fillText(s===3?'Ready for synthetic speech':'Research recording · T12',60,450);texture.needsUpdate=true;}
-  const waves=new T.Group();waves.position.set(5.5,.15,.2);scene.add(waves);
+  const waves=new T.Group();waves.position.set(5.5,.15,.2);study.add(waves);
   for(let i=0;i<4;i++){const wave=new T.Mesh(new T.TorusGeometry(.24+i*.15,.018,8,48,Math.PI*1.35),glow);wave.rotation.z=-Math.PI*.675;wave.rotation.y=.35;wave.position.x=i*.13;waves.add(wave);}
   const source=new T.Vector3();
   let signalPath,signalTube;
   const capturePaths=[];
   const wordPath=new T.CatmullRomCurve3([new T.Vector3(.9,.1,0),new T.Vector3(1.25,.3,.3),new T.Vector3(1.68,.15,.25)]);
   const routeMaterial=new T.MeshBasicMaterial({color:0x86a89a,transparent:true,opacity:.4});
-  scene.add(new T.Mesh(new T.TubeGeometry(wordPath,60,.012,6,false),routeMaterial));
+  study.add(new T.Mesh(new T.TubeGeometry(wordPath,60,.012,6,false),routeMaterial));
   function updateSignalRoutes(){
     person.updateMatrixWorld(true);
     const anchors=(activeAnchors.length?activeAnchors:siteDefinitions.filter(d=>d.active).map(d=>d.point)).map(p=>person.localToWorld(p.clone()));
     source.copy(anchors[0]).add(anchors[1]).multiplyScalar(.5);
     const outlet=source.clone().add(new T.Vector3(.27,.10,.20));
     signalPath=new T.CatmullRomCurve3([source.clone(),outlet,new T.Vector3(-1.5,.45,.5),new T.Vector3(-.8,.1,0)]);
-    if(signalTube){signalTube.geometry.dispose();scene.remove(signalTube);}
-    signalTube=new T.Mesh(new T.TubeGeometry(signalPath,60,.012,6,false),routeMaterial);scene.add(signalTube);
+    if(signalTube){signalTube.geometry.dispose();study.remove(signalTube);}
+    signalTube=new T.Mesh(new T.TubeGeometry(signalPath,60,.012,6,false),routeMaterial);study.add(signalTube);
     capturePaths.length=0;
     anchors.forEach(a=>capturePaths.push(new T.QuadraticBezierCurve3(a.clone().add(new T.Vector3(-.025,0,-.025)),a.clone(),outlet)));
   }
   updateSignalRoutes();
   const particles=[];
-  for(let i=0;i<24;i++){const m=new T.Mesh(new T.SphereGeometry(i<16?.04:.025,8,8),glow);scene.add(m);particles.push(m);}
+  for(let i=0;i<24;i++){const m=new T.Mesh(new T.SphereGeometry(i<16?.04:.025,8,8),glow);study.add(m);particles.push(m);}
   const focusLabels=['01 / The person behind the signal','02 / From neural activity to a prediction','03 / A sentence takes shape','04 / The words become audible'];
   const poses=[[-3.1,.3,7.8],[-.7,.65,12],[2.8,.4,8],[3.8,.5,8.8]];
   const targets=[[-3.25,.15,0],[-.8,.3,0],[2.65,.15,0],[3.55,.15,0]];
@@ -134,12 +137,13 @@ function init(){
   const stageObserver=new MutationObserver(()=>{const s=Number(shell.dataset.stage||0);if(s!==cameraStage){cameraStage=s;setHeadZoom(false);yaw=0;pitch=0;document.querySelector('#scene-focus').textContent=focusLabels[s];}});
   stageObserver.observe(shell,{attributes:true,attributeFilter:['data-stage']});
   document.querySelector('#view-reset').onclick=()=>{yaw=0;pitch=0;setHeadZoom(false);};
-  document.querySelector('#view-implant').onclick=e=>{
-    cutaway=!cutaway;skin.transparent=cutaway;skin.opacity=cutaway?.16:1;skin.depthWrite=!cutaway;skin.needsUpdate=true;
-    setHeadZoom(cutaway);yaw=cutaway?.65:0;pitch=0;
-    document.querySelector('#site-key').hidden=!cutaway;
-    e.currentTarget.setAttribute('aria-pressed',String(cutaway));e.currentTarget.textContent=cutaway?'Hide sites':'Show implant';
-  };
+  document.querySelector('#view-implant').onclick=()=>window.dispatchEvent(new Event('request-implant-mode'));
+  document.querySelectorAll('[data-implant-part]').forEach(button=>button.addEventListener('click',()=>{
+    const key=button.dataset.implantPart,info=implant.select(key);
+    document.querySelectorAll('[data-implant-part]').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));
+    document.querySelector('#part-title').textContent=info.title;
+    document.querySelector('#part-description').textContent=info.text;
+  }));
   renderer.domElement.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY};renderer.domElement.setPointerCapture(e.pointerId);});
   renderer.domElement.addEventListener('pointermove',e=>{if(!drag)return;rotate((e.clientX-drag.x)*.004);pitch=T.MathUtils.clamp(pitch+(e.clientY-drag.y)*.003,-.35,.35);drag={x:e.clientX,y:e.clientY};});
   renderer.domElement.addEventListener('pointerup',()=>drag=null);renderer.domElement.addEventListener('pointercancel',()=>drag=null);
@@ -150,17 +154,23 @@ function init(){
   function frameLoop(now){animation=requestAnimationFrame(frameLoop);if(!visible||document.hidden){previous=now;return;}const delta=Math.min((now-previous)/1000,.05);previous=now;
     const s=Number(shell.dataset.stage||0),active=shell.dataset.playing==='true',speaking=shell.dataset.speaking==='true';
     const f=Number(document.querySelector('#stage-progress').value||0);
+    const hardware=shell.dataset.mode!=='recording';
+    study.visible=!hardware;implant.group.visible=hardware;implant.update(delta,reduced.matches);
+    document.querySelector('#scene-focus').textContent=hardware?'Inside the implant':focusLabels[s];
+    document.querySelector('.scene-caption > span').textContent=hardware?'NEURALINK · HARDWARE SCHEMATIC':'RESEARCH REPLAY · SIGNAL TO TEXT';
     if(s!==lastStage){setHeadZoom(false);yaw=0;pitch=0;document.querySelector('#scene-focus').textContent=focusLabels[s];}
     const txt=s===0?'…':document.querySelector('#partial-text').textContent;
     if(txt!==lastText||s!==lastStage){paintText(txt,s);lastText=txt;lastStage=s;}
     target.fromArray(targets[s]);
     if(camera.aspect<1&&s===1)target.set(-3.1+5.7*f,.2,0);
     if(headZoom)target.set(-3.6,.65,0);
+    if(hardware)target.set(.2,-.1,0);
     aim.lerp(target,reduced.matches?1:1-Math.exp(-delta*4));
     const p=poses[s],distance=p[2]*(camera.aspect<1?1.55:1);
     const dest=new T.Vector3(p[0]+Math.sin(yaw)*distance,p[1]+pitch*distance,Math.cos(yaw)*distance);
     if(camera.aspect<1&&s===1)dest.set(target.x+Math.sin(yaw)*11,.5+pitch*11,Math.cos(yaw)*11);
     if(headZoom){const d=camera.aspect<1?9.2:5.2;dest.set(-3.6+Math.sin(yaw)*d,.65+pitch*d,Math.cos(yaw)*d);}
+    if(hardware){const d=camera.aspect<1?10.5:6.5;dest.set(Math.sin(yaw)*d,3.5+pitch*4,Math.cos(yaw)*d);}
     camera.position.lerp(dest,reduced.matches?1:1-Math.exp(-delta*4));camera.lookAt(aim);
     decoder.rotation.y=reduced.matches?0:(s===1?f*.65:.15);decoder.rotation.x=.12;
     halos.forEach(h=>{h.visible=cutaway||active&&s===0;h.scale.setScalar(active&&s===0&&!reduced.matches?1+.15*Math.sin(f*40):1);});

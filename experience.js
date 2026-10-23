@@ -1,8 +1,9 @@
 const $=s=>document.querySelector(s);
+let experienceMode='hardware';
 let dataset,recordIndex=0,stage=0,unlocked=0,playing=false,fraction=0,started=0,offset=0,raf=0;
 const completed=[false,false];
 const titles=['Record the attempted speech','Follow the decoder','Compare intention and prediction','Give the decoded words a voice'];
-const explanations=['The participant attempts to speak. Signals are illustrated leaving two local arrays in left ventral premotor cortex (6v), the region used for speech decoding in this Stanford study. Show implant reveals all four recorded arrays.','Replay the predictions recorded during this trial. Particles illustrate information flowing into the decoder. No model runs in this browser.','Compare the prompted sentence with the recorded final prediction. A decoder can make mistakes.','Choose to hear the final prediction in an English synthetic voice. This is not the participant’s original voice.'];
+const explanations=['The participant attempts speech. This separate research replay illustrates recording from a small local cortical region. Its data and hardware are not Neuralink measurements.','Replay the predictions recorded during this trial. Particles illustrate information flowing into the decoder. No model runs in this browser.','Compare the prompted sentence with the recorded final prediction. A decoder can make mistakes.','Choose to hear the final prediction in an English synthetic voice. This is not the participant’s original voice.'];
 function record(){return dataset.records[recordIndex];}
 function cancelVoice(){if('speechSynthesis' in window)speechSynthesis.cancel();$('.scene').dataset.speaking='false';}
 function stop(){playing=false;cancelAnimationFrame(raf);$('.scene').dataset.playing='false';}
@@ -22,12 +23,28 @@ function render(){
  $('#next').textContent=stage===0?'Continue to decoding →':stage===1?'See the final result →':'Continue to voice →';
  $('#speak').hidden=stage!==3;
  $('#playback-status').textContent=stage<2?(playing?'Replaying this stage…':completed[stage]?'Stage complete. Continue when you are ready.':'Play this stage to continue.'):(stage===2?'The recorded final result is now available.':'Audio plays only when you choose to hear it.');
+ const hardware=experienceMode==='hardware';$('.scene').dataset.mode=experienceMode;
+ document.querySelectorAll('[data-recording-only]').forEach(el=>el.hidden=hardware);
+ $('#hardware-parts').hidden=!hardware;
+ $('#mode-hardware').setAttribute('aria-pressed',String(hardware));$('#mode-recording').setAttribute('aria-pressed',String(!hardware));
+ $('#view-head').hidden=hardware;$('#view-implant').hidden=hardware;
+ $('.transcript').hidden=hardware||stage===0;
+ $('#mode-note').textContent=hardware?'Hardware schematic based on Neuralink’s public description. Layers are separated for explanation; dimensions and thread paths are illustrative.':'Research replay · Stanford (2023). These signals and predictions are not Neuralink measurements.';
+
 }
 function enter(s){if(s>unlocked)return;stop();cancelVoice();stage=s;fraction=0;$('#result').textContent='';render();if(stage<2)updateAt(0);}
 function tick(now){if(!playing)return;updateAt(Math.min(1,(offset+now-started)/record().durationMs));if(fraction===1){completed[stage]=true;unlocked=Math.max(unlocked,stage+1);stop();render();}else raf=requestAnimationFrame(tick);}
-function play(){if(!dataset||stage>=2)return;if(playing){stop();render();return;}if(fraction>=1)updateAt(0);offset=fraction*record().durationMs;started=performance.now();playing=true;$('.scene').dataset.playing='true';render();raf=requestAnimationFrame(tick);}
+function play(){if(experienceMode!=='recording'||!dataset||stage>=2)return;if(playing){stop();render();return;}if(fraction>=1)updateAt(0);offset=fraction*record().durationMs;started=performance.now();playing=true;$('.scene').dataset.playing='true';render();raf=requestAnimationFrame(tick);}
 function reset(){stop();cancelVoice();stage=0;unlocked=0;completed.fill(false);fraction=0;$('#result').textContent='';drawHeat();$('#record-meta').textContent=(record().durationMs/1000).toFixed(2)+' s · T12 · 2022-06-14';render();updateAt(0);}
-function speak(){if(!dataset||stage!==3||unlocked<3)return;cancelVoice();if(!('speechSynthesis' in window)){$('#result').textContent='Speech synthesis is unavailable in this browser.';return;}const u=new SpeechSynthesisUtterance(record().decoded);u.lang='en-US';u.onstart=()=>{$('.scene').dataset.speaking='true';};u.onend=()=>{$('.scene').dataset.speaking='false';};u.onerror=()=>{$('.scene').dataset.speaking='false';$('#result').textContent='Audio could not play. Please try again.';};speechSynthesis.speak(u);$('#result').textContent='Reading the final prediction with a synthetic voice.';}
+function speak(){if(experienceMode!=='recording'||!dataset||stage!==3||unlocked<3)return;cancelVoice();if(!('speechSynthesis' in window)){$('#result').textContent='Speech synthesis is unavailable in this browser.';return;}const u=new SpeechSynthesisUtterance(record().decoded);u.lang='en-US';u.onstart=()=>{$('.scene').dataset.speaking='true';};u.onend=()=>{$('.scene').dataset.speaking='false';};u.onerror=()=>{$('.scene').dataset.speaking='false';$('#result').textContent='Audio could not play. Please try again.';};speechSynthesis.speak(u);$('#result').textContent='Reading the final prediction with a synthetic voice.';}
+function setMode(mode){
+ if(!['hardware','recording'].includes(mode))return;
+ stop();cancelVoice();experienceMode=mode;
+ if(dataset)render();else $('.scene').dataset.mode=mode;
+}
+$('#mode-hardware').addEventListener('click',()=>setMode('hardware'));
+$('#mode-recording').addEventListener('click',()=>setMode('recording'));
+window.addEventListener('request-implant-mode',()=>setMode('hardware'));
 document.querySelectorAll('.journey-steps button, #play, #next, #reset, #speak').forEach(b=>b.disabled=true);
 fetch('data/trials.json').then(r=>{if(!r.ok)throw new Error('Data unavailable');return r.json();}).then(d=>{
  dataset=d;d.records.forEach((r,i)=>{const o=document.createElement('option');o.value=i;o.textContent=r.id+' · Prompt: “'+r.target+'”';$('#record-select').append(o);});
@@ -37,5 +54,5 @@ fetch('data/trials.json').then(r=>{if(!r.ok)throw new Error('Data unavailable');
  $('#play').addEventListener('click',play);$('#next').addEventListener('click',()=>{if(stage<2&&!completed[stage])return;if(stage===2)unlocked=3;if(stage<3)enter(stage+1);});
  document.querySelectorAll('.node').forEach(n=>n.addEventListener('click',()=>enter(Number(n.dataset.stage))));
  $('#reset').addEventListener('click',reset);$('#speak').addEventListener('click',speak);reset();
-}).catch(()=>{$('#stage-title').textContent='Recording could not be loaded';$('#explanation').textContent='Open this page through VS Code Live Server and refresh to load the local research data.';});
+}).catch(()=>{$('#mode-recording').disabled=true;$('#mode-note').textContent='The implant schematic is available. The research recording could not load; open this page through Live Server and refresh.';});
 window.addEventListener('pagehide',()=>{stop();cancelVoice();});
