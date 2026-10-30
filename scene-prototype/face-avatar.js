@@ -10,7 +10,7 @@ export async function loadFaceAvatar(renderer){
  const root=gltf.scene,holder=new T.Group();let face;const morphs=[];
  root.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;if(o.morphTargetInfluences){o.morphTargetInfluences.fill(0);morphs.push(o);if(o.morphTargetDictionary?.eyeBlink_L!==undefined)face=o;}if(o.material){o.material.roughness=.7;o.material.metalness=0;}}});
  if(!face)throw Error('The face has no native eye morphs.');
- face.material=face.material.clone();face.material.color.set('#e2b69d');
+ face.material=face.material.clone();face.material.color.set('#ffe9d8');
  // Keep the complete original scene, including its real eyeballs, lids and teeth.
  // Do not start AnimationMixer: the source clip contains talking motion.
  root.updateMatrixWorld(true);const box=new T.Box3().setFromObject(root,true),size=box.getSize(new T.Vector3()),centre=box.getCenter(new T.Vector3());

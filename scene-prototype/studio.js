@@ -143,7 +143,7 @@ function endDrag(e,cancelled=false){
 }
 renderer.domElement.addEventListener('pointerup',e=>endDrag(e));renderer.domElement.addEventListener('pointercancel',e=>endDrag(e,true));renderer.domElement.addEventListener('lostpointercapture',e=>endDrag(e,true));
 const cameraPoses={meet:[1.4,1.2,4.9,0,.6,-.45],listening:[.25,1.08,3.6,0,.90,-.6],respond:[.6,1.15,4.2,0,.7,-.6],explaining:[.8,1.15,4.4,0,.7,-.6],consent:[.8,1.15,4.4,0,.7,-.6],acknowledge:[.3,1.1,3.8,0,.85,-.6],prepare:[1.1,1.9,4.4,0,1.05,-.6],build:[1.8,3.1,9.8,-1,.1,.3],place:[3,2.2,6,0,.7,-.3],connect:[5,2.5,7,1.2,.2,0],signal:[4,2.8,8,1,.3,0],decode:[4.5,1.8,5.2,2.2,.3,0],words:[3.7,2,6.5,1.5,.4,0],voice:[3,1.7,6.6,.7,.6,-.3]};
-function frame(){requestAnimationFrame(frame);if(document.hidden){clock.getDelta();return;}const delta=Math.min(clock.getDelta(),.05),time=clock.elapsedTime,rate=reduced.matches?1:1-Math.exp(-delta*4);implant.update(delta,reduced.matches);
+function frame(){requestAnimationFrame(frame);if(document.hidden||document.body.dataset.entry==='intro'&&document.body.dataset.sceneReady==='true'){clock.getDelta();return;}const delta=Math.min(clock.getDelta(),.05),time=clock.elapsedTime,rate=reduced.matches?1:1-Math.exp(-delta*4);implant.update(delta,reduced.matches);
  marker.visible=phase==='place'&&!placed&&!seating;
  if(phase==='place'&&!placed&&!seating&&!dragged){implant.group.scale.lerp(new T.Vector3().setScalar(.23),rate);implant.group.position.lerp(deviceTray,rate);}
  if(seating>0&&!placed){seating=Math.min(1,seating+(reduced.matches?1:delta/1.2));implant.group.scale.lerp(new T.Vector3().setScalar(.075),rate);implant.group.position.lerp(embedded,rate);if(seating===1){placed=true;updateUI();}}
@@ -159,8 +159,12 @@ function frame(){requestAnimationFrame(frame);if(document.hidden){clock.getDelta
 }
 frame();
 window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);cameraTween=true;});
-Promise.allSettled([loadFaceAvatar(renderer).then(a=>{avatar=a;scene.add(a.group);}),fetch(new URL('./data/trials.json',import.meta.url)).then(r=>{if(!r.ok)throw Error('Recording data could not load');return r.json();}).then(d=>{data=d;d.records.forEach((r,i)=>{const o=document.createElement('option');o.value=i;o.textContent=r.id+' · '+r.target;$('#trial').append(o);});})]).then(results=>{
- const errors=results.filter(r=>r.status==='rejected');if(errors.length){loading.textContent='A studio asset could not load. Open with Live Server and refresh.';console.error(errors.map(r=>r.reason));}else loading.hidden=true;updateUI();
+Promise.allSettled([loadFaceAvatar(renderer).then(a=>{avatar=a;scene.add(a.group);}),fetch(new URL('./data/trials.json',import.meta.url)).then(r=>{if(!r.ok)throw Error('Recording data could not load');return r.json();}).then(d=>{data=d;d.records.forEach((r,i)=>{const o=document.createElement('option');o.value=i;o.textContent=r.id+' · '+r.target;$('#trial').append(o);});})]).then(async results=>{
+ const errors=results.filter(r=>r.status==='rejected');
+ if(errors.length){loading.textContent='A studio asset could not load. Open with Live Server and refresh.';console.error(errors.map(r=>r.reason));window.dispatchEvent(new Event('studio-error'));}
+ else{try{if(renderer.compileAsync)await renderer.compileAsync(scene,camera);else renderer.compile(scene,camera);renderer.render(scene,camera);loading.hidden=true;document.body.dataset.sceneReady='true';window.dispatchEvent(new Event('studio-ready'));}catch(error){console.error(error);window.dispatchEvent(new Event('studio-error'));}}
+ updateUI();
 });
+window.addEventListener('studio-intro-open',()=>{cancelVoice();if(['listening','respond','explaining','consent','acknowledge'].includes(phase))setPhase('meet');});
 window.addEventListener('pagehide',()=>{cancelVoice();avatar?.dispose();themeObserver.disconnect();});
 updateUI();

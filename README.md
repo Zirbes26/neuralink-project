@@ -61,3 +61,17 @@ A separate recording mode replays public Stanford data, with a short visible att
 - `experience.html` explains the two recordings. All live-page links point to How it works rather than the retired homepage journey.
 - Replace only the contents of `#principle-visual` in the homepage when the user's explanatory image is supplied. The temporary four-step diagram is functional content, not an empty placeholder.
 - The old root scene scripts are retained for recovery but are no longer loaded by the homepage or How it works page.
+
+
+## Homepage speech explanation · 2026-10-30
+
+The user's desktop image and two MP4s are copied into `media/neuralink-speech/`. The homepage follows the official section’s media/text, text/media, media/text arrangement, with concise paraphrases and source attribution. The temporary four-step principle diagram has been replaced. `home-media.js` plays muted videos only while visible, honors manual pause/reduced motion, and uses extracted local poster frames. Media require no remote connection. The 3D story stays in `technology.html`.
+
+
+## Film-to-studio entry · 2026-10-30
+
+`technology.html` begins with the user-supplied 12.63-second `Video Project.mp4`, copied as `media/studio/introduction.mp4`. `studio-entry.js` keeps the scene hidden/inert while the face model, KTX texture transcode, research data and GPU shader warm-up complete. The film starts only from a user gesture, can be skipped once the scene is ready, and enters the scene automatically on completion when ready. A slower model keeps the film cover visible instead of exposing a partial character. Replay preserves assembled parts.
+
+The face tint is now `#ffe9d8`; neck/hand skin is `#e7c2aa`. This adjusts the existing fictional character's material palette; no person in the film is recreated. The current body remains procedural and has not been replaced by a higher-detail scanned or rigged full-body asset. See `scene-prototype/CHARACTER-ASSET-BRIEF.md` for the model selection criteria.
+
+Tests cover normal entry, deliberately delayed face loading, film completion before loading, manual skip, replay, light materials, phone layout and the complete existing interactive story.
