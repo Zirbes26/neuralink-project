@@ -4,9 +4,9 @@ import {KTX2Loader} from './vendor/loaders/KTX2Loader.js';
 import {MeshoptDecoder} from './vendor/libs/meshopt_decoder.module.js';
 
 export async function loadFaceAvatar(renderer){
- const ktx=new KTX2Loader().setTranscoderPath('./vendor/libs/basis/').detectSupport(renderer);
+ const ktx=new KTX2Loader().setTranscoderPath(new URL('./vendor/libs/basis/',import.meta.url).href).detectSupport(renderer);
  const loader=new GLTFLoader().setKTX2Loader(ktx).setMeshoptDecoder(MeshoptDecoder);
- const gltf=await loader.loadAsync('./models/facecap.glb');
+ const gltf=await loader.loadAsync(new URL('./models/facecap.glb',import.meta.url).href);
  const root=gltf.scene,holder=new T.Group();let face;const morphs=[];
  root.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;if(o.morphTargetInfluences){o.morphTargetInfluences.fill(0);morphs.push(o);if(o.morphTargetDictionary?.eyeBlink_L!==undefined)face=o;}if(o.material){o.material.roughness=.7;o.material.metalness=0;}}});
  if(!face)throw Error('The face has no native eye morphs.');

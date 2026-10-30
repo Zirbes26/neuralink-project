@@ -12,6 +12,8 @@ function evidenceAt(f){$('#timeline').value=Math.round(f*1000);$('#time-label').
 function updateAt(f){fraction=f;$('#stage-progress').value=f;evidenceAt(f);if(stage===1){let text='Waiting for the first recorded prediction…';for(const p of record().partial){if(p.ms<=f*record().durationMs)text=p.text;else break;}$('#partial-text').textContent=text;}}
 function render(){
  const r=record();$('.scene').dataset.stage=stage;
+ const normalize=text=>text.toLowerCase().replace(/[^a-z0-9 ]/g,'').replace(/\s+/g,' ').trim();
+ $('.scene').dataset.prediction=normalize(r.target)===normalize(r.decoded)?'correct':'different';
  $('#progress').textContent='Step '+(stage+1)+' of 4 · '+r.id;
  $('#stage-title').textContent=titles[stage];$('#explanation').textContent=explanations[stage];
  document.querySelectorAll('.node').forEach((n,i)=>{n.disabled=i>unlocked;n.classList.toggle('selected',i===stage);n.setAttribute('aria-pressed',String(i===stage));});

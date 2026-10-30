@@ -18,6 +18,9 @@ const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamp
 scene.add(new T.HemisphereLight('#fff4e9','#b8a6a1',2.2));
 const sun=new T.DirectionalLight('#fff4dc',3.3);sun.position.set(-3,7,6);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.left=-9;sun.shadow.camera.right=9;sun.shadow.camera.top=8;sun.shadow.camera.bottom=-8;sun.shadow.normalBias=.025;scene.add(sun);
 const fill=new T.DirectionalLight('#e6deef',.7);fill.position.set(5,3,-4);scene.add(fill);
+const hemi=scene.children.find(o=>o.isHemisphereLight);
+function applySceneTheme(){const dark=document.documentElement.dataset.theme==='dark';scene.background.set(dark?'#211d30':'#fff1e5');scene.fog.color.copy(scene.background);sun.intensity=dark?2.2:3.3;if(hemi)hemi.intensity=dark?1.8:2.2;}
+const themeObserver=new MutationObserver(applySceneTheme);themeObserver.observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});applySceneTheme();
 const mat=(color,roughness=.7)=>new T.MeshStandardMaterial({color,roughness});
 const cream=mat('#f5dfc9'),wood=mat('#d3a886'),indigo=mat('#5b528c'),lilac=mat('#d7c9e7'),peach=mat('#dfad98'),fabric=mat('#778b89'),pants=mat('#42415c');
 function mesh(geometry,material,parent=scene,x=0,y=0,z=0){const o=new T.Mesh(geometry,material);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;parent.add(o);return o;}
@@ -156,8 +159,8 @@ function frame(){requestAnimationFrame(frame);if(document.hidden){clock.getDelta
 }
 frame();
 window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);cameraTween=true;});
-Promise.allSettled([loadFaceAvatar(renderer).then(a=>{avatar=a;scene.add(a.group);}),fetch('./data/trials.json').then(r=>{if(!r.ok)throw Error('Recording data could not load');return r.json();}).then(d=>{data=d;d.records.forEach((r,i)=>{const o=document.createElement('option');o.value=i;o.textContent=r.id+' · '+r.target;$('#trial').append(o);});})]).then(results=>{
+Promise.allSettled([loadFaceAvatar(renderer).then(a=>{avatar=a;scene.add(a.group);}),fetch(new URL('./data/trials.json',import.meta.url)).then(r=>{if(!r.ok)throw Error('Recording data could not load');return r.json();}).then(d=>{data=d;d.records.forEach((r,i)=>{const o=document.createElement('option');o.value=i;o.textContent=r.id+' · '+r.target;$('#trial').append(o);});})]).then(results=>{
  const errors=results.filter(r=>r.status==='rejected');if(errors.length){loading.textContent='A studio asset could not load. Open with Live Server and refresh.';console.error(errors.map(r=>r.reason));}else loading.hidden=true;updateUI();
 });
-window.addEventListener('pagehide',()=>{cancelVoice();avatar?.dispose();});
+window.addEventListener('pagehide',()=>{cancelVoice();avatar?.dispose();themeObserver.disconnect();});
 updateUI();

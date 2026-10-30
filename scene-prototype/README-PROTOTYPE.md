@@ -1,8 +1,8 @@
-# Interactive studio prototype
+# Interactive studio scene
 
-Independent full-window 3D exploration. The main website is not replaced.
+The current full-window 3D story is integrated directly into the main website’s How it works page (`../technology.html`).
 
-Open `index.html` with VS Code Live Server. All runtime assets are local; no CDN is required.
+Open `../technology.html` with VS Code Live Server. The old `index.html` entry point redirects there. All runtime assets are local; no CDN is required.
 
 - `studio.js`: room, furniture, assembly, positioning, pairing and research replay.
 - `face-avatar.js`: original Face Cap model hierarchy and native eye/brow morphs.
@@ -49,3 +49,8 @@ Sources:
 - https://neuralink.com/trials/speech-restoration/
 
 Browser checks cover patient-only mouth activity, stopped mouth during pauses and guide/computer speech, conversation cancellation/restart, manual assembly/implantation, cutaway, signal gates and narrow-screen layout. Speech events are simulated for deterministic browser tests; actual installed voices and speaker output vary by browser/device.
+
+
+## Main website entry point
+
+`technology.html` is the live scene page, rendered directly rather than in an iframe. Scripts and assets remain in this folder; model, decoder and dataset URLs are resolved with `new URL(..., import.meta.url)`. `site-scene.css` and `site-scene.js` provide shared navigation, header spacing and theme. The root homepage is now poster and explanation only.

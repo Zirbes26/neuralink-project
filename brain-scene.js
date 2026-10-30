@@ -2,6 +2,7 @@ import * as T from './vendor/three.module.js';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import {startPartDrag,movePartDrag,nearProjectedSlot} from './drag-space.js';
 import {createImplantPlacement} from './implant-placement.js';
+import {createSilentAvatar} from './silent-avatar.js';
 import {createPartExplorer} from './part-explorer.js';
 import {createImplantDevice} from './implant-device.js';
 import {createDecodingComputer} from './decoding-computer.js';
@@ -58,7 +59,7 @@ function init(){
     halos.forEach((h,i)=>{h.position.copy(activeAnchors[i]);h.position.x+=.03;recordingSites.add(h);});
     recordingSites.visible=true;
   }
-  let head;
+  let head,avatar;let avatarMotion=true;
   new GLTFLoader().load('./models/head.glb',g=>{
     g.scene.traverse(o=>{if(o.isMesh&&!head)head=new T.Mesh(o.geometry,skin);});
     if(!head){loading.textContent='The head model could not be read. The guided recording is still available.';return;}
@@ -79,7 +80,7 @@ function init(){
     const crownHit=crownRay.intersectObject(head,false)[0];
     person.add(head);person.updateMatrixWorld(true);
     if(crownHit)placement.setTarget(person.localToWorld(crownHit.point.clone().add(new T.Vector3(0,.15,0))));
-    buildRecordingSites();updateSignalRoutes();loading.hidden=true;syncBuild();
+    avatar=createSilentAvatar(head,person);buildRecordingSites();updateSignalRoutes();loading.hidden=true;syncBuild();
   },undefined,()=>{loading.textContent='The 3D head could not load. Open this page with Live Server and refresh.';});
   // Four local microelectrode arrays: two 6v, two 44. No whole-head fibers.
   const haloMaterial=new T.MeshBasicMaterial({color:0xf3ba79,transparent:true,opacity:.38,depthWrite:false});
@@ -120,6 +121,7 @@ function init(){
   function rotate(v){yaw=T.MathUtils.clamp(yaw+v,-.8,.8);}
   document.querySelector('#view-left').onclick=()=>rotate(-.16);
   document.querySelector('#view-right').onclick=()=>rotate(.16);
+  document.querySelector('#avatar-motion').onclick=()=>{avatarMotion=!avatarMotion;const b=document.querySelector('#avatar-motion');b.textContent=avatarMotion?'Pause character':'Resume character';b.setAttribute('aria-pressed',String(!avatarMotion));};
   function setHeadZoom(value){headZoom=value;const b=document.querySelector('#view-head');b.setAttribute('aria-pressed',String(value));b.textContent=value?'Return to journey':'Enlarge head';}
   document.querySelector('#view-head').onclick=()=>{setHeadZoom(!headZoom);yaw=0;pitch=0;};
   let cameraStage=Number(shell.dataset.stage||0);
@@ -251,8 +253,14 @@ function init(){
     if(skin.transparent!==transparentHead){skin.transparent=transparentHead;skin.depthWrite=!transparentHead;skin.needsUpdate=true;}skin.opacity=transparentHead?.12:1;
     const linking=positioning&&['link','connected'].includes(placement.phase);
     placement.group.visible=positioning&&placement.phase==='place';
+    const avatarVisible=!exploring&&(!hardware||positioning);
+    const expression=avatar?.update(delta,{enabled:avatarMotion,reduced:reduced.matches,correct:!hardware&&s===3&&shell.dataset.prediction==='correct',visible:avatarVisible});
+    shell.dataset.avatar=expression?.happy>.5?'happy':'neutral';
+    document.querySelector('#avatar-motion').hidden=!avatarVisible;
+
     if(signalTube)signalTube.visible=!hardware;
     document.querySelector('.scene-hint').textContent=positioning?(placement.phase!=='place'?'Drag empty space to rotate · Housing beneath the scalp':'Drag the complete implant onto the purple marker'):'Drag a component to build · Drag empty space to rotate';
+    if(!hardware)document.querySelector('.scene-hint').textContent='Silent avatar · Voice plays from the computer';
     shell.dataset.workbench=placement.phase;
     document.querySelector('#scene-focus').textContent=hardware?(placement.phase==='build'?'01 / Build the implant':placement.phase==='place'?'02 / Position the implant':placement.phase==='link'?'03 / Click the computer':placement.phase==='connected'?'Wireless connection ready':'Implant beneath the scalp'):focusLabels[s];
     document.querySelector('.scene-caption > span').textContent=hardware?'NEURALINK · HARDWARE SCHEMATIC':'RESEARCH REPLAY · SIGNAL TO TEXT';
@@ -270,6 +278,7 @@ function init(){
     if(camera.aspect<1&&s>=2){const d=Math.max(s===3?9.2:8.5,4.8/camera.aspect);dest.set(target.x+Math.sin(yaw)*d,1.1+pitch*d,Math.cos(yaw)*d);}
     if(headZoom){const d=camera.aspect<1?9.2:5.2;dest.set(-3.6+Math.sin(yaw)*d,.65+pitch*d,Math.cos(yaw)*d);}
     if(hardware){const d=linking?(camera.aspect<1?Math.max(12,8/camera.aspect):11):positioning?(camera.aspect<1?Math.max(10,5.5/camera.aspect):8):(camera.aspect<1?10.5:6.5);dest.set((linking?-1.1:positioning?-2.7:0)+Math.sin(yaw)*d,(positioning?3:3.5)+pitch*4,Math.cos(yaw)*d);}
+    if(!hardware&&s===3&&shell.dataset.prediction==='correct'&&!headZoom){const d=camera.aspect<1?Math.max(12,8/camera.aspect):11;aim.lerp(new T.Vector3(-1.15,.4,0),reduced.matches?1:1-Math.exp(-delta*4));dest.set(-1.15+Math.sin(yaw)*d,1.7+pitch*3,Math.cos(yaw)*d);}
     if(!movingPart&&!exploring){camera.position.lerp(dest,reduced.matches?1:1-Math.exp(-delta*4));camera.lookAt(aim);}
     halos.forEach(h=>{h.visible=cutaway||active&&s===0;h.scale.setScalar(active&&s===0&&!reduced.matches?1+.15*Math.sin(f*40):1);});
     particles.forEach((m,i)=>{m.visible=!hardware&&active&&s<=1;if(!m.visible)return;const t=(f*2+i/24)%1;if(s===0){m.position.copy(capturePaths[i%2].getPoint(t));}else m.position.copy(signalPath.getPointAt((f*2+i/24)%1));if(reduced.matches)m.visible=false;});

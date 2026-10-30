@@ -49,3 +49,15 @@ A separate recording mode replays public Stanford data, with a short visible att
 ## External decoding computer
 
 `decoding-computer.js` replaces the old transparent decoder cube and separate text slab with a generic 3D laptop, including a screen, bezel, hinge, keyboard, trackpad and receiver symbol. The small software-network illustration and recorded words are rendered inside its screen. The dashed signal path represents wireless data transfer; it is not a cable or measured radio propagation. Stages 2–4 frame the computer, final text and voice output. The surgical robot is discussed separately as an implantation tool. The laptop is not a branded product, an exact replica of study equipment, or evidence of live model inference.
+
+
+## Main-site integration · 2026-10-30
+
+- `index.html` is a concise poster homepage with the site's purpose and a simple signal-flow figure. It loads no WebGL, old experience controller or neural recording data.
+- `technology.html` (How it works) is the actual native page for the current full-window 3D story. It renders the scene directly, not inside an iframe or a separate linked prototype.
+- `scene-prototype/studio.js` and its modules remain the single maintained scene implementation. Asset URLs resolve relative to `import.meta.url`, so entry-page location does not break the face, texture decoders or recordings.
+- `site-scene.css` and `site-scene.js` integrate the main navigation, header spacing and shared theme with the scene. The scene title is plain heading text.
+- The previous `/scene-prototype/index.html` address redirects to `/technology.html` for existing bookmarks.
+- `experience.html` explains the two recordings. All live-page links point to How it works rather than the retired homepage journey.
+- Replace only the contents of `#principle-visual` in the homepage when the user's explanatory image is supplied. The temporary four-step diagram is functional content, not an empty placeholder.
+- The old root scene scripts are retained for recovery but are no longer loaded by the homepage or How it works page.
