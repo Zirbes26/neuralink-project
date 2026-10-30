@@ -4,10 +4,14 @@ import {createImplantDevice} from './implant-device.js';
 import {startPartDrag,movePartDrag,nearProjectedSlot} from './drag-space.js';
 import {createDecodingComputer} from './decoding-computer.js';
 import {loadFaceAvatar} from './face-avatar.js';
+import {createSeatedPerson} from './seated-person.js';
+import {addRoomDetails} from './room-details.js';
+import {createNarrativeSpeech} from './narrative-speech.js';
+import {createImplantCutaway} from './implant-cutaway.js';
 
 const $=s=>document.querySelector(s),world=$('#world'),loading=$('#loading');
 const reduced=matchMedia('(prefers-reduced-motion:reduce)');
-const renderer=new T.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.05;world.append(renderer.domElement);
+const renderer=new T.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));renderer.setSize(innerWidth,innerHeight);renderer.localClippingEnabled=true;renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.05;world.append(renderer.domElement);
 const scene=new T.Scene();scene.background=new T.Color('#fff1e5');scene.fog=new T.Fog('#fff1e5',15,35);
 const camera=new T.PerspectiveCamera(40,innerWidth/innerHeight,.05,80);camera.position.set(5,3.5,10);
 const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.enablePan=false;controls.minDistance=2;controls.maxDistance=17;controls.maxPolarAngle=Math.PI*.49;controls.target.set(0,.1,0);
@@ -28,43 +32,60 @@ box(3.65,.09,.15,wood,scene,-3.5,.38,-4.22);box(.07,2.9,.13,wood,scene,-3.5,1.8,
 const bench=new T.Group();bench.position.set(-2.9,0,1);scene.add(bench);
 box(2.9,.16,1.7,wood,bench,0,-.66,0);for(const x of [-1.15,1.15])for(const z of [-.55,.55])box(.075,.9,.075,indigo,bench,x,-1.15,z);
 const tray=box(2.4,.025,1.25,lilac,bench,0,-.56,0);tray.receiveShadow=true;
-const chair=new T.Group();chair.position.set(0,0,-.6);scene.add(chair);box(1.28,.18,1.2,peach,chair,0,-.73,0);box(1.3,1.45,.16,peach,chair,0,-.13,-.45);for(const x of [-.5,.5])for(const z of [-.4,.4])box(.06,.8,.06,indigo,chair,x,-1.22,z);
-// A clothed, seated body supports the original face without modifying its eyes.
-const body=new T.Group();body.position.set(0,0,-.6);scene.add(body);
-mesh(new T.SphereGeometry(1,40,24),fabric,body,0,-.16,0).scale.set(.68,.63,.34);
-mesh(new T.CylinderGeometry(.16,.20,.28,24),mat('#d9b19b'),body,0,.44,0);
-for(const side of [-1,1]){
- const arm=mesh(new T.CapsuleGeometry(.15,.57,8,16),fabric,body,side*.57,-.18,.03);arm.rotation.z=side*.12;
- mesh(new T.SphereGeometry(1,20,12),mat('#d9b19b'),body,side*.58,-.62,.08).scale.set(.11,.15,.09);
- const thigh=mesh(new T.CapsuleGeometry(.17,.35,8,16),pants,body,side*.24,-.70,.26);thigh.rotation.x=Math.PI/2;
- const leg=mesh(new T.CapsuleGeometry(.16,.65,8,16),pants,body,side*.24,-1.05,.32);leg.rotation.x=.12;
- mesh(new T.SphereGeometry(1,20,12),pants,body,side*.24,-1.5,.48).scale.set(.19,.10,.30);
-}
+const patientBody=createSeatedPerson();scene.add(patientBody.group);
+const cutaway=createImplantCutaway(scene);
 const desk=new T.Group();desk.position.set(3.1,0,.2);scene.add(desk);box(3.2,.14,1.7,wood,desk,0,-.57,0);for(const x of [-1.25,1.25])for(const z of [-.55,.55])box(.06,1,.06,indigo,desk,x,-1.1,z);
 const computer=createDecodingComputer();computer.group.position.set(3.1,.06,-.25);computer.group.scale.setScalar(.48);scene.add(computer.group);
 const plant=new T.Group();plant.position.set(-4,-1.65,-3);scene.add(plant);mesh(new T.CylinderGeometry(.30,.22,.5,32),peach,plant,0,.25,0);for(let i=0;i<7;i++){const a=i/7*Math.PI*2;const leaf=mesh(new T.SphereGeometry(1,12,8),mat('#829982'),plant,Math.sin(a)*.2,.8+(i%3)*.15,Math.cos(a)*.2);leaf.scale.set(.13,.5,.06);leaf.rotation.z=Math.sin(a)*.6;}
+addRoomDetails(scene);
 const implant=createImplantDevice();implant.group.position.set(-2.9,.2,1);implant.group.scale.setScalar(.47);scene.add(implant.group);
 const marker=mesh(new T.TorusGeometry(.25,.018,12,64),new T.MeshBasicMaterial({color:'#7868ca',transparent:true,opacity:.8,depthTest:false}),scene,0,1.62,-.6);marker.rotation.x=Math.PI/2;marker.renderOrder=5;marker.visible=false;
-const embedded=new T.Vector3(0,1.45,-.6),dropTarget=new T.Vector3(0,1.62,-.6),deviceTray=new T.Vector3(-1.05,1.2,.15);
+const embedded=new T.Vector3(0,1.49,-.6),dropTarget=new T.Vector3(0,1.62,-.6),deviceTray=new T.Vector3(-1.05,1.2,.15);
 const route=new T.CatmullRomCurve3([embedded.clone(),new T.Vector3(.8,1.7,-.35),new T.Vector3(2,1.5,-.1),new T.Vector3(2.4,.5,-.1)]);
 const line=new T.Line(new T.BufferGeometry().setFromPoints(route.getPoints(80)),new T.LineDashedMaterial({color:'#7868ca',dashSize:.07,gapSize:.08,transparent:true,opacity:.55}));line.computeLineDistances();scene.add(line);line.visible=false;
 const dots=[];for(let i=0;i<8;i++)dots.push(mesh(new T.SphereGeometry(.025,10,8),new T.MeshBasicMaterial({color:'#ce6c52'})));
-let avatar=null,data=null,phase='build',fraction=0,trialIndex=0,placed=false,seating=0,paused=false,view='room',cameraTween=true,correct=false,dragged=null,dragState=null,pointerId=null;
+let avatar=null,data=null,phase='meet',fraction=0,trialIndex=0,placed=false,seating=0,paused=false,view='room',cameraTween=true,correct=false,dragged=null,dragState=null,pointerId=null;
 const ray=new T.Raycaster(),pointer=new T.Vector2(),look=new T.Vector3(),destination=new T.Vector3(),clock=new T.Clock();
 const order=['electronics','battery','enclosure'],names={electronics:'electronics',battery:'battery',enclosure:'cover'};
-const states=['build','place','connect','signal','decode','words','voice'];
+const states=['meet','listening','respond','explaining','consent','acknowledge','build','prepare','place','connect','signal','decode','words','voice'];
 const normalization=text=>text.toLowerCase().replace(/[^a-z0-9 ]/g,'').replace(/\s+/g,' ').trim();
-function cancelVoice(){if('speechSynthesis' in window)speechSynthesis.cancel();}
+const dialogue=createNarrativeSpeech({onLine:(text,kind)=>{$('#dialogue-line').textContent=text;$('#dialogue-speaker').textContent=kind==='patient'?'ALEX':'YOU';},onSpeaking:value=>document.body.dataset.patientSpeaking=String(value),onFallback:()=>{$('#status').textContent='Audio is unavailable here. Follow the subtitles, or skip the dialogue.';}});
+function cancelVoice(){dialogue.cancel();if('speechSynthesis' in window)speechSynthesis.cancel();document.body.dataset.speaking='false';}
+async function patientOpening(){
+ setPhase('listening');
+ const done=await dialogue.play([{text:'I…',say:'I.',pause:650},{text:'I… I want to tell you something.',say:'I want to tell you something.',pause:250}],'patient');
+ if(done&&phase==='listening')setPhase('respond');
+}
+async function yourReply(){
+ setPhase('explaining');
+ const done=await dialogue.play([{text:'Take your time. I’m listening.',say:'Take your time. I am listening.',pause:300},{text:'We can explore a communication system designed for people with severe speech difficulties. Would you like to see how it works?',pause:0}],'guide');
+ if(done&&phase==='explaining')setPhase('consent');
+}
+async function acknowledge(){
+ setPhase('acknowledge');
+ const done=await dialogue.play([{text:'Yes. Please show me.',pause:150}],'patient');
+ if(done&&phase==='acknowledge')setPhase('build');
+}
+
 function record(){return data?.records[trialIndex];}
 function setPhase(next){if(!states.includes(next))return;cancelVoice();phase=next;fraction=0;cameraTween=true;view='room';updateUI();}
 function updateUI(message=''){
- document.body.dataset.phase=phase;document.body.dataset.view=view;$('#status').textContent=message;$('#view-room').setAttribute('aria-pressed',String(view==='room'));$('#view-face').setAttribute('aria-pressed',String(view==='face'));
+ document.body.dataset.phase=phase;document.body.dataset.view=view;
+ const conversational=['meet','listening','respond','explaining','consent','acknowledge'].includes(phase);$('#dialogue').hidden=!conversational;$('#skip-conversation').hidden=!conversational;$('#clinical-note').hidden=conversational;
+ if(phase==='meet'){$('#dialogue-speaker').textContent='MEET ALEX';$('#dialogue-line').textContent='A fictional person living with ALS who can still speak with difficulty.';}$('#status').textContent=message;$('#view-room').setAttribute('aria-pressed',String(view==='room'||view==='wide'));$('#view-face').setAttribute('aria-pressed',String(view==='face'));
  $('#recording-choice').hidden=!['signal','decode','words','voice'].includes(phase);$('#signal-controls').hidden=!['signal','decode'].includes(phase);
  $('#signal-range').value=Math.round(fraction*1000);$('#signal-percent').textContent=Math.round(fraction*100)+'%';$('#decoded').hidden=!['decode','words','voice'].includes(phase);$('#comparison').hidden=!['words','voice'].includes(phase);
- $('#source-label').textContent=['signal','decode','words','voice'].includes(phase)?'PUBLIC STANFORD RECORDING · SEPARATE FROM NEURALINK':'NEURALINK-INSPIRED HARDWARE · SCHEMATIC';
- for(const li of document.querySelectorAll('#steps li')){li.removeAttribute('aria-current');if(li.dataset.step===(phase==='words'?'decode':phase))li.setAttribute('aria-current','step');}
+ $('#source-label').textContent=['signal','decode','words','voice'].includes(phase)?'PUBLIC STANFORD RECORDING · SEPARATE FROM NEURALINK':conversational?'FICTIONAL CONVERSATION · ONE EXPERIENCE OF ALS':'INVESTIGATIONAL BCI · EDUCATIONAL SCHEMATIC';
+ for(const li of document.querySelectorAll('#steps li')){li.removeAttribute('aria-current');if(li.dataset.step===(conversational?'meet':phase==='prepare'?'place':phase==='words'?'decode':phase))li.setAttribute('aria-current','step');}
  const r=record(),next=implant.nextPart(),button=$('#action');button.disabled=false;
- if(phase==='build'){$('#task-title').textContent='Build a path to a voice.';$('#task-copy').textContent=next?`Drag the ${names[next]} onto the ring on the workbench.`:'Three parts. One connection waiting to happen.';button.textContent=next?`Place ${names[next]}`:'Position the implant →';}
+ if(conversational){
+  $('#task-title').textContent=phase==='meet'?'A conversation starts with listening.':phase==='respond'?'There is time to listen.':phase==='consent'?'Explore the idea together.':'Stay in the conversation.';
+  $('#task-copy').textContent=phase==='meet'?'Alex has something to say. Take a moment to listen.':phase==='respond'?'Choose your reply.':'Use the subtitles to follow the exchange. Audio and mouth movements are synthetic.';
+  button.textContent=phase==='meet'?'Listen to Alex':phase==='respond'?'“Take your time. I’m listening.”':phase==='consent'?'Explore how the implant works':'Speaking…';
+  button.disabled=['listening','explaining','acknowledge'].includes(phase);
+ }
+ if(phase==='prepare'){$('#task-title').textContent='Look beneath the surface.';$('#task-copy').textContent='A simplified cutaway shows the housing at skull level beneath the scalp, with fine threads extending toward the cortex. This is not a surgical procedure.';button.textContent='Position the implant →';}
+ if(phase==='build'){$('#task-title').textContent='Build a path to a voice.';$('#task-copy').textContent=next?`Drag the ${names[next]} onto the ring on the workbench.`:'Three parts. One connection waiting to happen.';button.textContent=next?`Place ${names[next]}`:'Reveal the placement schematic →';}
  if(phase==='place'){$('#task-title').textContent=placed?'Quietly beneath the surface.':'A small device. A closer connection.';$('#task-copy').textContent=placed?'The housing sits beneath the scalp. Threads extend inward; position and size are illustrative.':'Drag the assembled device onto the marker on the head.';button.textContent=placed?'Connect to the computer →':seating?'Seating the implant…':'Place at the marker';button.disabled=seating>0&&!placed;}
  if(phase==='connect'){$('#task-title').textContent='Make the connection.';$('#task-copy').textContent='Click the computer to pair the illustrated wireless link.';button.textContent='Pair computer';}
  if(phase==='signal'){$('#task-title').textContent='You guide the signal.';$('#task-copy').textContent='Now switch to a separate public research trial. Move the slider to inspect its recorded signal.';$('#signal-label').textContent='Collect the recorded signal';button.textContent='Send it to the decoder →';button.disabled=fraction<1;}
@@ -74,7 +95,11 @@ function updateUI(message=''){
 }
 function startSeating(){placed=false;seating=.001;marker.visible=false;updateUI();}
 $('#action').addEventListener('click',()=>{
- if(phase==='build'){const next=implant.nextPart();if(next)implant.fit(next);else{setPhase('place');implant.group.position.copy(deviceTray);}updateUI();}
+ if(phase==='meet'){patientOpening();return;}
+ if(phase==='respond'){yourReply();return;}
+ if(phase==='consent'){acknowledge();return;}
+ if(phase==='prepare'){setPhase('place');implant.group.position.copy(deviceTray);return;}
+ if(phase==='build'){const next=implant.nextPart();if(next)implant.fit(next);else{setPhase('prepare');}updateUI();}
  else if(phase==='place'){if(placed)setPhase('connect');else startSeating();}
  else if(phase==='connect')setPhase('signal');
  else if(phase==='signal'&&fraction===1)setPhase('decode');
@@ -85,8 +110,9 @@ $('#action').addEventListener('click',()=>{
 $('#signal-range').addEventListener('input',e=>{fraction=Number(e.target.value)/1000;updateUI();});
 $('#trial').addEventListener('change',e=>{trialIndex=Number(e.target.value);setPhase('signal');});
 $('#motion').addEventListener('click',()=>{paused=!paused;$('#motion').textContent=paused?'Resume movement':'Pause movement';$('#motion').setAttribute('aria-pressed',String(paused));});
-for(const key of ['room','face'])$('#view-'+key).addEventListener('click',()=>{view=key;cameraTween=true;updateUI();});
-$('#restart').addEventListener('click',()=>{if(pointerId!==null)endDrag({pointerId},true);implant.resetAssembly();implant.group.position.set(-2.9,.2,1);implant.group.scale.setScalar(.47);placed=false;seating=0;correct=false;document.body.dataset.speaking='false';setPhase('build');});
+$('#skip-conversation').addEventListener('click',()=>{cancelVoice();setPhase('build');});
+for(const key of ['room','face'])$('#view-'+key).addEventListener('click',()=>{view=key==='room'?'wide':'face';cameraTween=true;updateUI();});
+$('#restart').addEventListener('click',()=>{if(pointerId!==null)endDrag({pointerId},true);implant.resetAssembly();implant.group.position.set(-2.9,.2,1);implant.group.scale.setScalar(.47);placed=false;seating=0;correct=false;document.body.dataset.speaking='false';setPhase('meet');});
 $('#sources-open').onclick=()=>$('#sources').showModal();$('#sources-close').onclick=()=>$('#sources').close();
 function pointerRay(e){const r=renderer.domElement.getBoundingClientRect();pointer.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);camera.updateMatrixWorld(true);implant.group.updateMatrixWorld(true);ray.setFromCamera(pointer,camera);}
 function pick(){
@@ -113,17 +139,18 @@ function endDrag(e,cancelled=false){
  dragged=null;dragState=null;const id=pointerId;pointerId=null;controls.enabled=true;if(renderer.domElement.hasPointerCapture(id))renderer.domElement.releasePointerCapture(id);renderer.domElement.style.cursor='default';
 }
 renderer.domElement.addEventListener('pointerup',e=>endDrag(e));renderer.domElement.addEventListener('pointercancel',e=>endDrag(e,true));renderer.domElement.addEventListener('lostpointercapture',e=>endDrag(e,true));
-const cameraPoses={build:[1.8,3.1,9.8,-1,.1,.3],place:[3,2.2,6,0,.7,-.3],connect:[5,2.5,7,1.2,.2,0],signal:[4,2.8,8,1,.3,0],decode:[4.5,1.8,5.2,2.2,.3,0],words:[3.7,2,6.5,1.5,.4,0],voice:[3,1.7,6.6,.7,.6,-.3]};
-function frame(){requestAnimationFrame(frame);const delta=Math.min(clock.getDelta(),.05),time=clock.elapsedTime,rate=reduced.matches?1:1-Math.exp(-delta*4);implant.update(delta,reduced.matches);
+const cameraPoses={meet:[1.4,1.2,4.9,0,.6,-.45],listening:[.25,1.08,3.6,0,.90,-.6],respond:[.6,1.15,4.2,0,.7,-.6],explaining:[.8,1.15,4.4,0,.7,-.6],consent:[.8,1.15,4.4,0,.7,-.6],acknowledge:[.3,1.1,3.8,0,.85,-.6],prepare:[1.1,1.9,4.4,0,1.05,-.6],build:[1.8,3.1,9.8,-1,.1,.3],place:[3,2.2,6,0,.7,-.3],connect:[5,2.5,7,1.2,.2,0],signal:[4,2.8,8,1,.3,0],decode:[4.5,1.8,5.2,2.2,.3,0],words:[3.7,2,6.5,1.5,.4,0],voice:[3,1.7,6.6,.7,.6,-.3]};
+function frame(){requestAnimationFrame(frame);if(document.hidden){clock.getDelta();return;}const delta=Math.min(clock.getDelta(),.05),time=clock.elapsedTime,rate=reduced.matches?1:1-Math.exp(-delta*4);implant.update(delta,reduced.matches);
  marker.visible=phase==='place'&&!placed&&!seating;
  if(phase==='place'&&!placed&&!seating&&!dragged){implant.group.scale.lerp(new T.Vector3().setScalar(.23),rate);implant.group.position.lerp(deviceTray,rate);}
  if(seating>0&&!placed){seating=Math.min(1,seating+(reduced.matches?1:delta/1.2));implant.group.scale.lerp(new T.Vector3().setScalar(.075),rate);implant.group.position.lerp(embedded,rate);if(seating===1){placed=true;updateUI();}}
- const faceHappy=phase==='voice'&&correct;avatar?.update(delta,{happy:faceHappy,paused,reduced:reduced.matches});document.body.dataset.expression=faceHappy?'happy':'neutral';
+ const faceHappy=phase==='voice'&&correct;avatar?.update(delta,{happy:faceHappy,paused,reduced:reduced.matches,talking:dialogue.amount(performance.now())});
+ cutaway.show(['prepare','place'].includes(phase),avatar);document.body.dataset.expression=faceHappy?'happy':'neutral';
  line.visible=['signal','decode','words','voice'].includes(phase);
  dots.forEach((o,i)=>{o.visible=['signal','decode'].includes(phase);o.position.copy(route.getPointAt(Math.min(1,Math.max(0,fraction-i*.027))));});
  const r=record();let text='';if(phase==='decode')for(const p of r?.partial||[])if(p.ms<=fraction*r.durationMs)text=p.text;if(['words','voice'].includes(phase))text=r?.decoded||'';
  computer.update({stage:phase==='voice'?3:phase==='words'?2:['decode','signal'].includes(phase)?1:0,text,fraction,playing:false,speaking:document.body.dataset.speaking==='true',reducedMotion:reduced.matches,time:time*1000});
- if(cameraTween&&!dragged){let p=cameraPoses[phase];if(view==='face')p=[.15,1.05,2.9,0,1,-.6];destination.set(p[0],p[1],p[2]);look.set(p[3],p[4],p[5]);if(innerWidth<700){if(view==='face'){destination.z=3.7;look.y=.8;}else{if(phase==='build'){destination.set(-2.7,2.1,7.5);look.set(-2.9,.15,1);}else if(phase==='place'){destination.set(1,2,6);look.set(0,.5,-.3);}else if(phase==='decode'||phase==='words'){destination.set(3.5,1.7,6);look.set(3,.2,0);}else{destination.set(p[3]+.5,2.5,9);look.y=.2;}}}
+ if(cameraTween&&!dragged){let p=cameraPoses[phase];if(view==='face')p=[.15,1.05,2.9,0,1,-.6];if(view==='wide')p=[4,3.3,11.5,0,0,-.1];destination.set(p[0],p[1],p[2]);look.set(p[3],p[4],p[5]);if(innerWidth<700){if(view==='wide'){destination.set(3,4,17);look.set(0,0,0);}else if(view==='face'){destination.z=3.7;look.y=.8;}else{if(phase==='build'){destination.set(-2.7,2.1,7.5);look.set(-2.9,.15,1);}else if(['meet','listening','respond','explaining','consent','acknowledge'].includes(phase)){destination.set(.12,1.4,5.3);look.set(0,.80,-.6);}else if(phase==='prepare'){destination.set(.4,1.9,5);look.set(0,1,-.6);}else if(phase==='place'){destination.set(1,2,6);look.set(0,.5,-.3);}else if(phase==='decode'||phase==='words'){destination.set(3.5,1.7,6);look.set(3,.2,0);}else{destination.set(p[3]+.5,2.5,9);look.y=.2;}}}
  camera.position.lerp(destination,rate);controls.target.lerp(look,rate);}
  controls.update();renderer.render(scene,camera);
 }
