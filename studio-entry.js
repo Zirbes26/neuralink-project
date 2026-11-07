@@ -2,7 +2,7 @@
 (() => {
  const film=document.querySelector('#opening-film'),cover=document.querySelector('#experience-intro');if(!film||!cover)return;
  const play=document.querySelector('#intro-play'),enter=document.querySelector('#intro-enter'),status=document.querySelector('#entry-status'),retry=document.querySelector('#intro-retry');
- const background=[...document.querySelectorAll('#world,.intro,.views,#steps,#task,.gesture,#loading')];
+ const background=[...document.querySelectorAll('#world,.intro,.views,#task,.gesture,#loading')];
  let ready=document.body.dataset.sceneReady==='true',failed=false,finished=false;
  function lock(value){for(const element of background){element.inert=value;if(value)element.setAttribute('aria-hidden','true');else element.removeAttribute('aria-hidden');}}
  function refresh(){

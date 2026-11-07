@@ -1,15 +1,36 @@
 import * as T from './vendor/three.module.js';
-// An abstract explanatory cutaway, not an anatomical or surgical placement map.
+import {GLTFLoader} from './vendor/GLTFLoader.js';
+// MRI-derived surface, fitted to a fictional avatar. Placement remains illustrative.
 export function createImplantCutaway(scene){
- const group=new T.Group();group.position.set(0,1.25,-.6);scene.add(group);group.visible=false;
- const cortex=new T.MeshStandardMaterial({color:'#a79bc6',roughness:.9,transparent:true,opacity:.9});
- const brain=new T.Mesh(new T.SphereGeometry(1,40,24),cortex);brain.scale.set(.34,.235,.32);group.add(brain);
- const foldmat=new T.MeshStandardMaterial({color:'#897cac',roughness:.9});
- for(let i=0;i<11;i++){const points=[];for(let j=0;j<30;j++){const t=j/29*Math.PI;const x=(i-5)*.054,y=Math.sin(t)*.21+.006*Math.sin(t*14+i),z=Math.cos(t)*Math.sqrt(Math.max(0,1-(x/.35)**2))*.31;points.push(new T.Vector3(x+.008*Math.sin(t*15),y,z));}group.add(new T.Mesh(new T.TubeGeometry(new T.CatmullRomCurve3(points),36,.008,6,false),foldmat));}
- const rim=new T.Mesh(new T.TorusGeometry(.35,.018,12,64),new T.MeshStandardMaterial({color:'#efe0be',roughness:.8}));rim.rotation.x=Math.PI/2;rim.position.y=.03;group.add(rim);
- const scalp=new T.Mesh(new T.SphereGeometry(1,40,16,0,Math.PI*2,0,Math.PI*.49),new T.MeshStandardMaterial({color:'#dbb29a',transparent:true,opacity:.13,side:T.DoubleSide,depthWrite:false}));scalp.scale.set(.40,.30,.38);scalp.position.y=.02;group.add(scalp);
- const clip=new T.Plane(new T.Vector3(0,-1,0),1.27);
- let previous=null,previousAvatar=null;
- function show(value,avatar){if(previous===value&&previousAvatar===avatar)return;previous=value;previousAvatar=avatar;group.visible=value;if(!avatar)return;const material=avatar.face.material;material.clippingPlanes=value?[clip]:null;material.clipShadows=value;material.needsUpdate=true;}
- return {group,show};
+ const group=new T.Group();group.name='MRI-derived brain';group.position.set(-.03,1.29,-.57);scene.add(group);group.visible=false;
+ const reveal={value:0},materials=new Set();let previous=null,previousAvatar=null,brain=null;
+ async function load(){
+  const gltf=await new GLTFLoader().loadAsync(new URL('./models/brain/brain.glb',import.meta.url).href);
+  const root=gltf.scene;root.rotation.y=Math.PI;root.updateMatrixWorld(true);
+  const bounds=new T.Box3().setFromObject(root),size=bounds.getSize(new T.Vector3()),centre=bounds.getCenter(new T.Vector3()),scale=.34/size.x;
+  const fit=new T.Group();fit.add(root);root.position.sub(centre);fit.scale.setScalar(scale);fit.scale.z*=.88;group.add(fit);
+  const cortex=new T.MeshStandardMaterial({name:'MRI cortical surface',color:'#ca9e98',roughness:.88,metalness:0,side:T.DoubleSide});
+  root.traverse(o=>{if(o.isMesh){o.material=cortex;o.castShadow=false;o.receiveShadow=true;}});brain=root;return root;
+ }
+ function attach(avatar){
+  for(const m of avatar.morphs.flatMap(mesh=>[].concat(mesh.material))){
+   if(materials.has(m)||!['Skin','Hair and lashes'].includes(m.name))continue;
+   materials.add(m);const hair=m.name==='Hair and lashes';m.transparent=true;m.depthWrite=true;
+   m.onBeforeCompile=shader=>{
+    shader.uniforms.uBrainReveal=reveal;
+    shader.vertexShader='varying float vRevealHeight;\n'+shader.vertexShader;
+    shader.vertexShader=shader.vertexShader.replace('#include <project_vertex>','#include <project_vertex>\nvRevealHeight = (modelMatrix * vec4(transformed, 1.0)).y;');
+    shader.fragmentShader='uniform float uBrainReveal; varying float vRevealHeight;\n'+shader.fragmentShader;
+    shader.fragmentShader=shader.fragmentShader.replace('#include <opaque_fragment>','diffuseColor.a *= 1.0 - uBrainReveal * '+(hair?'1.0':'smoothstep(1.18, 1.27, vRevealHeight) * 0.88')+';\n#include <opaque_fragment>');
+   };
+   m.customProgramCacheKey=()=>hair?'brain-reveal-hair-v1':'brain-reveal-skin-v1';m.needsUpdate=true;
+  }
+ }
+ function show(value,avatar){
+  if(avatar&&avatar!==previousAvatar){attach(avatar);previousAvatar=avatar;previous=null;}
+  if(previous===value)return;previous=value;group.visible=value;reveal.value=value?1:0;
+  // Restore opaque skin outside the explanatory view, including its original depth behavior.
+  for(const m of materials){m.transparent=value;m.depthWrite=true;m.needsUpdate=true;}
+ }
+ return {group,load,show,get brain(){return brain;}};
 }

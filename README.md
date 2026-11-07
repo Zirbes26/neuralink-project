@@ -75,3 +75,14 @@ The user's desktop image and two MP4s are copied into `media/neuralink-speech/`.
 The face tint is now `#ffe9d8`; neck/hand skin is `#e7c2aa`. This adjusts the existing fictional character's material palette; no person in the film is recreated. The current body remains procedural and has not been replaced by a higher-detail scanned or rigged full-body asset. See `scene-prototype/CHARACTER-ASSET-BRIEF.md` for the model selection criteria.
 
 Tests cover normal entry, deliberately delayed face loading, film completion before loading, manual skip, replay, light materials, phone layout and the complete existing interactive story.
+
+
+## Current character (2026-10-30)
+The active How it works scene uses Microsoft Rocketbox Medical_Male_02, the blue rescue uniform selected by the project author. The entire skinned character (80 bones) replaces the separate Face Cap head and procedural clothed body. A matching seated breathing clip drives the body; native facial morphs drive blinking and the scripted introduction. Computer output does not animate the mouth.
+
+Runtime assets: scene-prototype/models/rocketbox/medical-male-02.glb (~12 MB, textures embedded) and m_sit_chair_breathe_01.json. The original model has 175 face targets; the web version retains only the 10 used targets. Source: https://github.com/microsoft/Microsoft-Rocketbox (MIT). License and provenance are stored beside the asset. Walking animations are available in the source library but are not part of the current seated experience.
+
+
+## MRI brain surface (2026-10-30)
+The implantation explanation now loads models/brain/brain.glb (7,444,776 bytes) in the intro readiness gate. Source: “Brain” by dgallichan, https://sketchfab.com/3d-models/brain-cadd2bde67404c43b2359a6a3281d84a, CC BY 4.0 (original license retained). Source is a FreeSurfer reconstruction from T1-weighted MRI. Conversion preserves all 377,701 triangles and surface normals, removes unused vertex colours, and converts fitting index buffers to uint16. An illustrative scale, orientation, depth fit and soft pink material are applied in the scene. This scan is unrelated to the fictional avatar and is not evidence of Neuralink implantation locations.
+The upper scalp fades via a world-height material shader in prepare/place phases. Facial depth writes stay enabled to avoid showing teeth through the face. Normal character materials return on leaving the view. The prepare camera moves closer; manual placement remains available in the next step.

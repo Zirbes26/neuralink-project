@@ -3,8 +3,8 @@ import {OrbitControls} from './vendor/controls/OrbitControls.js';
 import {createImplantDevice} from './implant-device.js';
 import {startPartDrag,movePartDrag,nearProjectedSlot} from './drag-space.js';
 import {createDecodingComputer} from './decoding-computer.js';
-import {loadFaceAvatar} from './face-avatar.js';
-import {createSeatedPerson} from './seated-person.js';
+import {loadFaceAvatar} from './rocketbox-avatar.js';
+import {createPatientChair} from './patient-chair.js';
 import {addRoomDetails} from './room-details.js';
 import {createNarrativeSpeech} from './narrative-speech.js';
 import {createImplantCutaway} from './implant-cutaway.js';
@@ -35,7 +35,7 @@ box(3.65,.09,.15,wood,scene,-3.5,.38,-4.22);box(.07,2.9,.13,wood,scene,-3.5,1.8,
 const bench=new T.Group();bench.position.set(-2.9,0,1);scene.add(bench);
 box(2.9,.16,1.7,wood,bench,0,-.66,0);for(const x of [-1.15,1.15])for(const z of [-.55,.55])box(.075,.9,.075,indigo,bench,x,-1.15,z);
 const tray=box(2.4,.025,1.25,lilac,bench,0,-.56,0);tray.receiveShadow=true;
-const patientBody=createSeatedPerson();scene.add(patientBody.group);
+const patientBody=createPatientChair();scene.add(patientBody.group);
 const cutaway=createImplantCutaway(scene);
 const desk=new T.Group();desk.position.set(3.1,0,.2);scene.add(desk);box(3.2,.14,1.7,wood,desk,0,-.57,0);for(const x of [-1.25,1.25])for(const z of [-.55,.55])box(.06,1,.06,indigo,desk,x,-1.1,z);
 const computer=createDecodingComputer();computer.group.position.set(3.1,.06,-.25);computer.group.scale.setScalar(.48);scene.add(computer.group);
@@ -47,6 +47,7 @@ const embedded=new T.Vector3(0,1.49,-.6),dropTarget=new T.Vector3(0,1.62,-.6),de
 const route=new T.CatmullRomCurve3([embedded.clone(),new T.Vector3(.8,1.7,-.35),new T.Vector3(2,1.5,-.1),new T.Vector3(2.4,.5,-.1)]);
 const line=new T.Line(new T.BufferGeometry().setFromPoints(route.getPoints(80)),new T.LineDashedMaterial({color:'#7868ca',dashSize:.07,gapSize:.08,transparent:true,opacity:.55}));line.computeLineDistances();scene.add(line);line.visible=false;
 const dots=[];for(let i=0;i<8;i++)dots.push(mesh(new T.SphereGeometry(.025,10,8),new T.MeshBasicMaterial({color:'#ce6c52'})));
+let playbackDuration=0;
 let avatar=null,data=null,phase='meet',fraction=0,trialIndex=0,placed=false,seating=0,paused=false,view='room',cameraTween=true,correct=false,dragged=null,dragState=null,pointerId=null;
 const ray=new T.Raycaster(),pointer=new T.Vector2(),look=new T.Vector3(),destination=new T.Vector3(),clock=new T.Clock();
 const order=['electronics','battery','enclosure'],names={electronics:'electronics',battery:'battery',enclosure:'cover'};
@@ -71,15 +72,14 @@ async function acknowledge(){
 }
 
 function record(){return data?.records[trialIndex];}
-function setPhase(next){if(!states.includes(next))return;cancelVoice();phase=next;fraction=0;cameraTween=true;view='room';updateUI();}
+function setPhase(next){if(!states.includes(next))return;cancelVoice();phase=next;fraction=0;playbackDuration=0;cameraTween=true;view='room';updateUI();}
 function updateUI(message=''){
  document.body.dataset.phase=phase;document.body.dataset.view=view;
  const conversational=['meet','listening','respond','explaining','consent','acknowledge'].includes(phase);$('#dialogue').hidden=!conversational;$('#skip-conversation').hidden=!conversational;$('#clinical-note').hidden=conversational;
- if(phase==='meet'){$('#dialogue-speaker').textContent='MEET ALEX';$('#dialogue-line').textContent='A fictional person living with ALS who can still speak with difficulty.';}$('#status').textContent=message;$('#view-room').setAttribute('aria-pressed',String(view==='room'||view==='wide'));$('#view-face').setAttribute('aria-pressed',String(view==='face'));
+ if(phase==='meet'){$('#dialogue-speaker').textContent='MEET ALEX';$('#dialogue-line').textContent='A fictional person living with ALS who can still speak with difficulty.';}$('#status').textContent=message;$('#view-face').setAttribute('aria-pressed',String(view==='face'));
  $('#recording-choice').hidden=!['signal','decode','words','voice'].includes(phase);$('#signal-controls').hidden=!['signal','decode'].includes(phase);
- $('#signal-range').value=Math.round(fraction*1000);$('#signal-percent').textContent=Math.round(fraction*100)+'%';$('#decoded').hidden=!['decode','words','voice'].includes(phase);$('#comparison').hidden=!['words','voice'].includes(phase);
+ $('#signal-progress').value=fraction;$('#decoded').hidden=!['decode','words','voice'].includes(phase);$('#comparison').hidden=!['words','voice'].includes(phase);
  $('#source-label').textContent=['signal','decode','words','voice'].includes(phase)?'PUBLIC STANFORD RECORDING · SEPARATE FROM NEURALINK':conversational?'FICTIONAL CONVERSATION · ONE EXPERIENCE OF ALS':'INVESTIGATIONAL BCI · EDUCATIONAL SCHEMATIC';
- for(const li of document.querySelectorAll('#steps li')){li.removeAttribute('aria-current');if(li.dataset.step===(conversational?'meet':phase==='prepare'?'place':phase==='words'?'decode':phase))li.setAttribute('aria-current','step');}
  const r=record(),next=implant.nextPart(),button=$('#action');button.disabled=false;
  if(conversational){
   $('#task-title').textContent=phase==='meet'?'A conversation starts with listening.':phase==='respond'?'There is time to listen.':phase==='consent'?'Explore the idea together.':'Stay in the conversation.';
@@ -87,12 +87,12 @@ function updateUI(message=''){
   button.textContent=phase==='meet'?'Listen to Alex':phase==='respond'?'“Take your time. I’m listening.”':phase==='consent'?'Explore how the implant works':'Speaking…';
   button.disabled=['listening','explaining','acknowledge'].includes(phase);
  }
- if(phase==='prepare'){$('#task-title').textContent='Look beneath the surface.';$('#task-copy').textContent='A simplified cutaway shows the housing at skull level beneath the scalp, with fine threads extending toward the cortex. This is not a surgical procedure.';button.textContent='Position the implant →';}
+ if(phase==='prepare'){$('#task-title').textContent='Look beneath the surface.';$('#task-copy').textContent='Explore an MRI-derived brain beneath a transparent head. The housing sits at skull level; fine electrode threads reach the cortex. Positioning is illustrative.';button.textContent='Position the implant →';}
  if(phase==='build'){$('#task-title').textContent='Build a path to a voice.';$('#task-copy').textContent=next?`Drag the ${names[next]} onto the ring on the workbench.`:'Three parts. One connection waiting to happen.';button.textContent=next?`Place ${names[next]}`:'Reveal the placement schematic →';}
  if(phase==='place'){$('#task-title').textContent=placed?'Quietly beneath the surface.':'A small device. A closer connection.';$('#task-copy').textContent=placed?'The housing sits beneath the scalp. Threads extend inward; position and size are illustrative.':'Drag the assembled device onto the marker on the head.';button.textContent=placed?'Connect to the computer →':seating?'Seating the implant…':'Place at the marker';button.disabled=seating>0&&!placed;}
  if(phase==='connect'){$('#task-title').textContent='Make the connection.';$('#task-copy').textContent='Click the computer to pair the illustrated wireless link.';button.textContent='Pair computer';}
- if(phase==='signal'){$('#task-title').textContent='You guide the signal.';$('#task-copy').textContent='Now switch to a separate public research trial. Move the slider to inspect its recorded signal.';$('#signal-label').textContent='Collect the recorded signal';button.textContent='Send it to the decoder →';button.disabled=fraction<1;}
- if(phase==='decode'){$('#task-title').textContent='A prediction takes shape.';$('#task-copy').textContent='Move through the study’s recorded predictions. The model is not running live.';$('#signal-label').textContent='Move through decoding';button.textContent='Reveal the result →';button.disabled=fraction<1;let text='…';for(const p of r.partial)if(p.ms<=fraction*r.durationMs)text=p.text;$('#decoded').textContent=text;}
+ if(phase==='signal'){$('#task-title').textContent='You guide the signal.';$('#task-copy').textContent='Choose a public research trial and send its recorded signal to the decoder.';button.textContent=playbackDuration?'Sending signal…':'Send recorded signal →';button.disabled=playbackDuration>0;}
+ if(phase==='decode'){$('#task-title').textContent='A prediction takes shape.';$('#task-copy').textContent='Watch the study’s predictions appear as the recording plays.';button.textContent=playbackDuration?'Replaying predictions…':'Replay decoding →';button.disabled=playbackDuration>0;let text='…';for(const p of r.partial)if(p.ms<=fraction*r.durationMs)text=p.text;$('#decoded').textContent=text;}
  if(phase==='words'||phase==='voice'){correct=normalization(r.target)===normalization(r.decoded);$('#decoded').textContent=r.decoded;$('#comparison').textContent=`Prompt: “${r.target}” · ${correct?'Matched the prompt.':'The prediction differs.'}`;$('#task-title').textContent=phase==='voice'?'Let the computer say it.':'Did the words arrive?';$('#task-copy').textContent=phase==='voice'?'The person stays silent. The computer reads the recorded prediction in a synthetic voice.':'The avatar’s response is illustrative, not the participant’s recorded reaction.';button.textContent=phase==='voice'?'Play computer voice':'Give it a voice →';}
  button.disabled ||= !avatar||(!data&&['connect','signal','decode','words','voice'].includes(phase));
 }
@@ -105,16 +105,18 @@ $('#action').addEventListener('click',()=>{
  if(phase==='build'){const next=implant.nextPart();if(next)implant.fit(next);else{setPhase('prepare');}updateUI();}
  else if(phase==='place'){if(placed)setPhase('connect');else startSeating();}
  else if(phase==='connect')setPhase('signal');
- else if(phase==='signal'&&fraction===1)setPhase('decode');
- else if(phase==='decode'&&fraction===1)setPhase('words');
+ else if(phase==='signal'||phase==='decode'){
+  const nextPhase=phase==='signal'?'decode':'words';
+  if(reduced.matches){setPhase(nextPhase);return;}
+  playbackDuration=phase==='signal'?2:Math.min(4,Math.max(1.5,record().durationMs/1000));
+  updateUI();
+ }
  else if(phase==='words')setPhase('voice');
  else if(phase==='voice'){cancelVoice();if(!('speechSynthesis' in window)){updateUI('Speech synthesis is unavailable in this browser.');return;}const u=new SpeechSynthesisUtterance(record().decoded);u.lang='en-US';u.onstart=()=>document.body.dataset.speaking='true';u.onend=()=>document.body.dataset.speaking='false';speechSynthesis.speak(u);updateUI('Audio comes from the computer; the avatar has no lip animation.');}
 });
-$('#signal-range').addEventListener('input',e=>{fraction=Number(e.target.value)/1000;updateUI();});
 $('#trial').addEventListener('change',e=>{trialIndex=Number(e.target.value);setPhase('signal');});
-$('#motion').addEventListener('click',()=>{paused=!paused;$('#motion').textContent=paused?'Resume movement':'Pause movement';$('#motion').setAttribute('aria-pressed',String(paused));});
 $('#skip-conversation').addEventListener('click',()=>{cancelVoice();setPhase('build');});
-for(const key of ['room','face'])$('#view-'+key).addEventListener('click',()=>{view=key==='room'?'wide':'face';cameraTween=true;updateUI();});
+$('#view-face').addEventListener('click',()=>{view='face';cameraTween=true;updateUI();});
 $('#restart').addEventListener('click',()=>{if(pointerId!==null)endDrag({pointerId},true);implant.resetAssembly();implant.group.position.set(-2.9,.2,1);implant.group.scale.setScalar(.47);placed=false;seating=0;correct=false;document.body.dataset.speaking='false';setPhase('meet');});
 $('#sources-open').onclick=()=>$('#sources').showModal();$('#sources-close').onclick=()=>$('#sources').close();
 function pointerRay(e){const r=renderer.domElement.getBoundingClientRect();pointer.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);camera.updateMatrixWorld(true);implant.group.updateMatrixWorld(true);ray.setFromCamera(pointer,camera);}
@@ -142,8 +144,13 @@ function endDrag(e,cancelled=false){
  dragged=null;dragState=null;const id=pointerId;pointerId=null;controls.enabled=true;if(renderer.domElement.hasPointerCapture(id))renderer.domElement.releasePointerCapture(id);renderer.domElement.style.cursor='default';
 }
 renderer.domElement.addEventListener('pointerup',e=>endDrag(e));renderer.domElement.addEventListener('pointercancel',e=>endDrag(e,true));renderer.domElement.addEventListener('lostpointercapture',e=>endDrag(e,true));
-const cameraPoses={meet:[1.4,1.2,4.9,0,.6,-.45],listening:[.25,1.08,3.6,0,.90,-.6],respond:[.6,1.15,4.2,0,.7,-.6],explaining:[.8,1.15,4.4,0,.7,-.6],consent:[.8,1.15,4.4,0,.7,-.6],acknowledge:[.3,1.1,3.8,0,.85,-.6],prepare:[1.1,1.9,4.4,0,1.05,-.6],build:[1.8,3.1,9.8,-1,.1,.3],place:[3,2.2,6,0,.7,-.3],connect:[5,2.5,7,1.2,.2,0],signal:[4,2.8,8,1,.3,0],decode:[4.5,1.8,5.2,2.2,.3,0],words:[3.7,2,6.5,1.5,.4,0],voice:[3,1.7,6.6,.7,.6,-.3]};
+const cameraPoses={meet:[1.4,1.2,4.9,0,.6,-.45],listening:[.25,1.08,3.6,0,.90,-.6],respond:[.6,1.15,4.2,0,.7,-.6],explaining:[.8,1.15,4.4,0,.7,-.6],consent:[.8,1.15,4.4,0,.7,-.6],acknowledge:[.3,1.1,3.8,0,.85,-.6],prepare:[1.25,2.1,2.5,0,1.18,-.6],build:[1.8,3.1,9.8,-1,.1,.3],place:[3,2.2,6,0,.7,-.3],connect:[5,2.5,7,1.2,.2,0],signal:[4,2.8,8,1,.3,0],decode:[4.5,1.8,5.2,2.2,.3,0],words:[3.7,2,6.5,1.5,.4,0],voice:[3,1.7,6.6,.7,.6,-.3]};
 function frame(){requestAnimationFrame(frame);if(document.hidden||document.body.dataset.entry==='intro'&&document.body.dataset.sceneReady==='true'){clock.getDelta();return;}const delta=Math.min(clock.getDelta(),.05),time=clock.elapsedTime,rate=reduced.matches?1:1-Math.exp(-delta*4);implant.update(delta,reduced.matches);
+ if(playbackDuration>0){
+  fraction=reduced.matches?1:Math.min(1,fraction+delta/playbackDuration);
+  $('#signal-progress').value=fraction;
+  if(fraction===1)setPhase(phase==='signal'?'decode':'words');
+ }
  marker.visible=phase==='place'&&!placed&&!seating;
  if(phase==='place'&&!placed&&!seating&&!dragged){implant.group.scale.lerp(new T.Vector3().setScalar(.23),rate);implant.group.position.lerp(deviceTray,rate);}
  if(seating>0&&!placed){seating=Math.min(1,seating+(reduced.matches?1:delta/1.2));implant.group.scale.lerp(new T.Vector3().setScalar(.075),rate);implant.group.position.lerp(embedded,rate);if(seating===1){placed=true;updateUI();}}
@@ -151,15 +158,15 @@ function frame(){requestAnimationFrame(frame);if(document.hidden||document.body.
  cutaway.show(['prepare','place'].includes(phase),avatar);document.body.dataset.expression=faceHappy?'happy':'neutral';
  line.visible=['signal','decode','words','voice'].includes(phase);
  dots.forEach((o,i)=>{o.visible=['signal','decode'].includes(phase);o.position.copy(route.getPointAt(Math.min(1,Math.max(0,fraction-i*.027))));});
- const r=record();let text='';if(phase==='decode')for(const p of r?.partial||[])if(p.ms<=fraction*r.durationMs)text=p.text;if(['words','voice'].includes(phase))text=r?.decoded||'';
- computer.update({stage:phase==='voice'?3:phase==='words'?2:['decode','signal'].includes(phase)?1:0,text,fraction,playing:false,speaking:document.body.dataset.speaking==='true',reducedMotion:reduced.matches,time:time*1000});
- if(cameraTween&&!dragged){let p=cameraPoses[phase];if(view==='face')p=[.15,1.05,2.9,0,1,-.6];if(view==='wide')p=[4,3.3,11.5,0,0,-.1];destination.set(p[0],p[1],p[2]);look.set(p[3],p[4],p[5]);if(innerWidth<700){if(view==='wide'){destination.set(3,4,17);look.set(0,0,0);}else if(view==='face'){destination.z=3.7;look.y=.8;}else{if(phase==='build'){destination.set(-2.7,2.1,7.5);look.set(-2.9,.15,1);}else if(['meet','listening','respond','explaining','consent','acknowledge'].includes(phase)){destination.set(.12,1.4,5.3);look.set(0,.80,-.6);}else if(phase==='prepare'){destination.set(.4,1.9,5);look.set(0,1,-.6);}else if(phase==='place'){destination.set(1,2,6);look.set(0,.5,-.3);}else if(phase==='decode'||phase==='words'){destination.set(3.5,1.7,6);look.set(3,.2,0);}else{destination.set(p[3]+.5,2.5,9);look.y=.2;}}}
+ const r=record();let text='';if(phase==='decode')for(const p of r?.partial||[])if(p.ms<=fraction*r.durationMs)text=p.text;if(phase==='decode')$('#decoded').textContent=text||'…';if(['words','voice'].includes(phase))text=r?.decoded||'';
+ computer.update({stage:phase==='voice'?3:phase==='words'?2:['decode','signal'].includes(phase)?1:0,text,fraction,playing:playbackDuration>0,speaking:document.body.dataset.speaking==='true',reducedMotion:reduced.matches,time:time*1000});
+ if(cameraTween&&!dragged){let p=cameraPoses[phase];if(view==='face')p=[.15,1.05,2.9,0,1,-.6];if(view==='wide')p=[4,3.3,11.5,0,0,-.1];destination.set(p[0],p[1],p[2]);look.set(p[3],p[4],p[5]);if(innerWidth<700){if(view==='wide'){destination.set(3,4,17);look.set(0,0,0);}else if(view==='face'){destination.z=3.7;look.y=.8;}else{if(phase==='build'){destination.set(-2.7,2.1,7.5);look.set(-2.9,.15,1);}else if(['meet','listening','respond','explaining','consent','acknowledge'].includes(phase)){destination.set(.12,1.4,5.3);look.set(0,.80,-.6);}else if(phase==='prepare'){destination.set(.2,2.0,3.6);look.set(0,1.18,-.6);}else if(phase==='place'){destination.set(1,2,6);look.set(0,.5,-.3);}else if(phase==='decode'||phase==='words'){destination.set(3.5,1.7,6);look.set(3,.2,0);}else{destination.set(p[3]+.5,2.5,9);look.y=.2;}}}
  camera.position.lerp(destination,rate);controls.target.lerp(look,rate);}
  controls.update();renderer.render(scene,camera);
 }
 frame();
 window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);cameraTween=true;});
-Promise.allSettled([loadFaceAvatar(renderer).then(a=>{avatar=a;scene.add(a.group);}),fetch(new URL('./data/trials.json',import.meta.url)).then(r=>{if(!r.ok)throw Error('Recording data could not load');return r.json();}).then(d=>{data=d;d.records.forEach((r,i)=>{const o=document.createElement('option');o.value=i;o.textContent=r.id+' · '+r.target;$('#trial').append(o);});})]).then(async results=>{
+Promise.allSettled([cutaway.load(),loadFaceAvatar(renderer).then(a=>{avatar=a;scene.add(a.group);}),fetch(new URL('./data/trials.json',import.meta.url)).then(r=>{if(!r.ok)throw Error('Recording data could not load');return r.json();}).then(d=>{data=d;d.records.forEach((r,i)=>{const o=document.createElement('option');o.value=i;o.textContent=r.id+' · '+r.target;$('#trial').append(o);});})]).then(async results=>{
  const errors=results.filter(r=>r.status==='rejected');
  if(errors.length){loading.textContent='A studio asset could not load. Open with Live Server and refresh.';console.error(errors.map(r=>r.reason));window.dispatchEvent(new Event('studio-error'));}
  else{try{if(renderer.compileAsync)await renderer.compileAsync(scene,camera);else renderer.compile(scene,camera);renderer.render(scene,camera);loading.hidden=true;document.body.dataset.sceneReady='true';window.dispatchEvent(new Event('studio-ready'));}catch(error){console.error(error);window.dispatchEvent(new Event('studio-error'));}}
